@@ -14,6 +14,10 @@ The loop: a concept is written down in `docs/concepts/`, in a few lines. The cod
 
 No install, no dependencies. Python 3.11 or later.
 
+## Why
+
+`docs/paradigm.md`: what this repo is for, the physics it stands on, the three distinctions, the inversion, and who contributed what.
+
 ## Pieces
 
 1. `docs/concepts/01-autograd.md`, `cocoonml/autograd.py`
