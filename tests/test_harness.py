@@ -281,3 +281,13 @@ class TestStream(unittest.TestCase):
                 for e, oe in zip(node.sisters, origin.sisters):
                     self.assertLessEqual(abs(e.order - oe.order), radius + Fraction(1, 8))
         self.assertGreater(moved, 100)
+
+    def test_steps_between_contexts_are_a_rate_not_a_metronome(self):
+        import random
+        from cocoonml.harness import _poisson
+
+        rng = random.Random(0)
+        self.assertEqual([_poisson(rng, 0) for _ in range(20)], [0] * 20)
+        draws = [_poisson(rng, 1) for _ in range(4000)]
+        self.assertGreater(len(set(draws)), 2)  # not always one
+        self.assertAlmostEqual(sum(draws) / len(draws), 1.0, delta=0.08)

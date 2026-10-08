@@ -1,3 +1,4 @@
+import math
 """The apparatus end to end: artifacts from a table, packed into one context, a model trained
 on contexts from the training table and read on contexts from a drifted table, position by
 position. A later position has seen more artifacts, so loss by position is the recovery curve
@@ -80,18 +81,31 @@ def filled(table, separator, length, rng, extension_base=None, pairs=False):
     return tokens, targets, len(artifacts)
 
 
+def _poisson(rng, mean):
+    """A count drawn around `mean` (Knuth's method; standard library only)."""
+    if mean <= 0:
+        return 0
+    limit, k, product = math.exp(-mean), 0, rng.random()
+    while product > limit:
+        k += 1
+        product *= rng.random()
+    return k
+
+
 def stream(table, rng, bound, lean, radius, separator, length, extension_base=None, pairs=False, steps_per_context=1):
     """Contexts produced while the index walks: each context is drawn from the current table, which
-    then takes `steps_per_context` steps of the bounded walk (`schema.step`) around `table`, the
-    origin, within `radius` (None: a free walk; steps_per_context 0: the stationary table, which is
-    what every sweep up to 05 trained on). This is the training stream of the reality design: drift
-    present in training, up to the training radius; readings beyond it are the test. Yields
-    (tokens, targets, current table) without end."""
+    then takes a number of steps of the bounded walk (`schema.step`) around `table`, the origin,
+    within `radius` (None: a free walk). The number of steps between contexts is drawn around
+    `steps_per_context` (a Poisson count: there is no clock in the index, steps are not ticks, so the
+    count is a rate, not a metronome); 0 is the stationary table, which is what every sweep up to 05
+    trained on. This is the training stream of the reality design: drift present in training, up to
+    the training radius; readings beyond it are the test. Yields (tokens, targets, current table)
+    without end."""
     current = table
     while True:
         tokens, targets, _ = filled(current, separator, length, rng, extension_base, pairs)
         yield tokens, targets, current
-        for _ in range(steps_per_context):
+        for _ in range(_poisson(rng, steps_per_context)):
             current = step(current, rng, bound, lean, centre=table, radius=radius)
 
 
