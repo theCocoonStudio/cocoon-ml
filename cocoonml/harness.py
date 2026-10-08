@@ -80,6 +80,21 @@ def filled(table, separator, length, rng, extension_base=None, pairs=False):
     return tokens, targets, len(artifacts)
 
 
+def stream(table, rng, bound, lean, radius, separator, length, extension_base=None, pairs=False, steps_per_context=1):
+    """Contexts produced while the index walks: each context is drawn from the current table, which
+    then takes `steps_per_context` steps of the bounded walk (`schema.step`) around `table`, the
+    origin, within `radius` (None: a free walk; steps_per_context 0: the stationary table, which is
+    what every sweep up to 05 trained on). This is the training stream of the reality design: drift
+    present in training, up to the training radius; readings beyond it are the test. Yields
+    (tokens, targets, current table) without end."""
+    current = table
+    while True:
+        tokens, targets, _ = filled(current, separator, length, rng, extension_base, pairs)
+        yield tokens, targets, current
+        for _ in range(steps_per_context):
+            current = step(current, rng, bound, lean, centre=table, radius=radius)
+
+
 def train(model, table, steps, batch_size, per_context, separator, lr, rng):
     """Train the model on contexts from the table; returns the loss at each step."""
     losses = []
