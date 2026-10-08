@@ -114,3 +114,13 @@ This is the term no bound in the literature has, and it is the only place the in
 - Izzy: recovery tracks D_Δ, graded, new pairs included; what the delta does not account for is the residual's remainder, transcendent, and it is incomputable from the artifacts by the identifiability statement itself.
 
 **What the count predicts before any run, where both agree.** Recovery grows as √k at a node and is divided by depth through π; it is capped by drift at 1/(sλ) however large k grows; a phase is learnable only from ambiguous artifacts; and the resolution a model can reach is the coarser of the tree's grain and its own. The disagreement is confined to I_Δ: whether a new pair is recoverable at all. That is the run.
+
+## Operational reading in the code, and one question (Claude, 2026-10-09)
+
+`cocoonml/schema.py` realises the table as a binary grammar: every nonterminal has two sisters that are alternative expansions, their shares summing to one, and each expansion is a merge of two symbols with an order ratio. In that reading a share is the share of the world's traffic that takes one alternative, which is what "a leaf's weight is its share of the world's traffic" says, and what the count's "which sister was drawn" uses.
+
+The definitions also admit a second reading, and the two are not the same object: sisters as the two daughters of one merge, both present in every artifact, with the share saying how much of the node's weight rides on each. Under that reading nothing is drawn at a node, every leaf is spoken in every artifact, and a share is a weight on meaning rather than a frequency of use. The code took the first because an artifact must be a draw for frequencies to exist and for k artifacts to pin anything; the second is the one "sisters sum to one, the scale set by the leaf count" was said in.
+
+The question, Izzy's: are shares frequencies of alternatives, weights on daughters, or both, with one at the choice points and one inside a merge? The count and the code follow the answer; until it is given, the code's reading is marked as mine.
+
+Also: `cocoonml/harness.py` packs several artifacts into one context with a separator form and reads loss by position as the recovery curve inside one window; `run()` trains on a table, reads the curve on it and on its drifted version. A smoke run of the chain exists in Claude's scratch; its numbers are under the rule and are not on this page.
