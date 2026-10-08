@@ -557,3 +557,62 @@ def entropy_floor_meaning(table):
     for (forms, _), p in joint.items():
         strings[forms] = strings.get(forms, 0.0) + p
     return sum(p * -math.log(p / strings[forms]) for (forms, _), p in joint.items())
+
+
+# --- A move on the incidence (sweep 03 round one, item 3) ---------------------------------------
+# step moves shares, orders and phases: which strings occur. The form–cut pairs, the incidence, it
+# never touches, so no run produces a pair the training table did not hold, which is where the two
+# predictions separate (I_Δ in the count). remap is that move, kept apart from step so that the two
+# axes of the page's test, form drift and protocol drift, are two knobs. It gives `count` spoken
+# leaves another cut the table already uses and leaves every share and order as it was, so the
+# string distribution is unchanged and only the extensions move.
+
+
+def cuts_of(table):
+    """The cuts the table's leaves use, sorted."""
+    return sorted({leaf.cut for node in table.nodes for e in node.sisters for leaf in (e.first, e.second) if not _is_nonterminal(leaf)})
+
+
+def remap(table, rng, count):
+    """A new table with `count` distinct spoken leaves (form not empty) given another of the
+    table's cuts. Returns (table, moves), a move being (node, sister, slot, old cut, new cut).
+    Refuses a table with fewer than two cuts or fewer spoken leaves than `count`."""
+    cuts = cuts_of(table)
+    if len(cuts) < 2:
+        raise ValueError("remap needs a table with at least two cuts")
+    new = table.copy()
+    spoken = [
+        (i, si, slot)
+        for i, node in enumerate(new.nodes)
+        for si, e in enumerate(node.sisters)
+        for slot, leaf in enumerate((e.first, e.second))
+        if not _is_nonterminal(leaf) and leaf.form != 0
+    ]
+    if len(spoken) < count:
+        raise ValueError(f"remap of {count} leaves on a table with {len(spoken)} spoken leaves")
+    moves = []
+    for i, si, slot in rng.sample(spoken, count):
+        e = new.nodes[i].sisters[si]
+        leaf = e.first if slot == 0 else e.second
+        new_cut = rng.choice([c for c in cuts if c != leaf.cut])
+        moved = Leaf(leaf.form, new_cut)
+        if slot == 0:
+            e.first = moved
+        else:
+            e.second = moved
+        moves.append((i, si, slot, leaf.cut, new_cut))
+    return new, moves
+
+
+def incidence_delta(a, b):
+    """The fraction of leaf slots whose cut differs between two tables of one shape: a ratio of
+    counts, the I_Δ of the count read off the tables."""
+    moved = total = 0
+    for na, nb in zip(a.nodes, b.nodes):
+        for ea, eb in zip(na.sisters, nb.sisters):
+            for la, lb in ((ea.first, eb.first), (ea.second, eb.second)):
+                if _is_nonterminal(la):
+                    continue
+                total += 1
+                moved += int(la.cut != lb.cut)
+    return Fraction(moved, total) if total else Fraction(0)
