@@ -233,3 +233,23 @@ def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=20
             if last >= before * (1 - tolerance):
                 break
     return losses
+
+
+# --- The scrambled-pairs control (sweep 04 round one, item 2) -----------------------------------
+# A drop of the meaning loss after the first artifact could be the pairs being read, or the first
+# position being special. The control: the same context with the extension tokens of the input
+# permuted among themselves, the targets untouched, so the model is asked for the true extension of
+# each string while every earlier pair in its window is wrong. A curve that does not rise under
+# scrambling did not read the pairs.
+
+
+def scramble_extensions(tokens, rng, extension_base):
+    """The tokens with their extension tokens permuted among themselves; forms and separators where
+    they were. Returns a new list."""
+    places = [i for i, t in enumerate(tokens) if t >= extension_base]
+    values = [tokens[i] for i in places]
+    rng.shuffle(values)
+    out = list(tokens)
+    for i, v in zip(places, values):
+        out[i] = v
+    return out
