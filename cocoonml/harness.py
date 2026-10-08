@@ -24,9 +24,31 @@ def pack(artifacts, separator, length):
     return tokens, targets
 
 
-def contexts(table, count, per_context, separator, length, rng):
-    """`count` contexts, each packing `per_context` draws from the table."""
+def contexts(table, count, per_context, separator, length, rng, fill=False):
+    """`count` contexts, each packing `per_context` draws from the table; with `fill`, draws until
+    the next whole artifact does not fit, so every context is full and no position is rare in
+    training (sweep 02 round one, item 3)."""
+    if fill:
+        return [filled(table, separator, length, rng)[:2] for _ in range(count)]
     return [pack([draw(table, rng)[0] for _ in range(per_context)], separator, length) for _ in range(count)]
+
+
+def filled(table, separator, length, rng, extension_base=None):
+    """One full context: artifacts drawn until the next whole one does not fit, packed with form
+    targets, or with meaning targets when `extension_base` is given. Returns (tokens, targets,
+    number of artifacts)."""
+    artifacts, used = [], 0
+    while True:
+        forms, cuts = draw(table, rng)
+        if used + len(forms) + 1 > length:
+            break
+        artifacts.append((forms, cuts))
+        used += len(forms) + 1
+    if extension_base is None:
+        tokens, targets = pack([forms for forms, _ in artifacts], separator, length)
+    else:
+        tokens, targets = pack_meaning(artifacts, separator, length, extension_base)
+    return tokens, targets, len(artifacts)
 
 
 def train(model, table, steps, batch_size, per_context, separator, lr, rng):
@@ -98,17 +120,33 @@ def pack_meaning(artifacts, separator, length, extension_base):
     return tokens, targets
 
 
-def contexts_meaning(table, count, per_context, separator, length, extension_base, rng):
+def contexts_meaning(table, count, per_context, separator, length, extension_base, rng, fill=False):
+    if fill:
+        return [filled(table, separator, length, rng, extension_base)[:2] for _ in range(count)]
     return [pack_meaning([draw(table, rng) for _ in range(per_context)], separator, length, extension_base) for _ in range(count)]
 
 
-def meaning_loss_at_separators(model, table, count, per_context, separator, length, extension_base, rng):
+def _ranked(table, count, per_context, separator, length, extension_base, rng, fill):
+    """Contexts with the number of artifacts each holds, and the rank every context reaches:
+    with `fill`, the curves are reported only at ranks present in every context, since a later
+    rank is otherwise read on the contexts whose earlier artifacts were short (sweep 02 round one,
+    item 4). Without fill every rank is reported."""
+    if fill:
+        made = [filled(table, separator, length, rng, extension_base) for _ in range(count)]
+        return [(t, g) for t, g, _ in made], min(n for _, _, n in made)
+    if extension_base is None:
+        return contexts(table, count, per_context, separator, length, rng), None
+    return contexts_meaning(table, count, per_context, separator, length, extension_base, rng), None
+
+
+def meaning_loss_at_separators(model, table, count, per_context, separator, length, extension_base, rng, fill=False):
     """Mean cross-entropy of the extension targets, in order of the separator's rank within the
     context (first artifact, second, ...): the recovery curve of meaning against k."""
     import math
 
     sums, counts = {}, {}
-    for tokens, targets in contexts_meaning(table, count, per_context, separator, length, extension_base, rng):
+    made, whole = _ranked(table, count, per_context, separator, length, extension_base, rng, fill)
+    for tokens, targets in made:
         logits, _ = model.forward(tokens)
         rank = 0
         for i, (tok, lg, t) in enumerate(zip(tokens, logits, targets)):
@@ -118,16 +156,17 @@ def meaning_loss_at_separators(model, table, count, per_context, separator, leng
                 sums[rank] = sums.get(rank, 0.0) + (-(lg[t].value - m) + math.log(total))
                 counts[rank] = counts.get(rank, 0) + 1
                 rank += 1
-    return [sums[r] / counts[r] for r in sorted(sums)]
+    return [sums[r] / counts[r] for r in sorted(sums) if whole is None or r < whole]
 
 
-def form_loss_by_rank(model, table, count, per_context, separator, rng):
+def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=False):
     """Mean cross-entropy of next-FORM prediction grouped by artifact rank within the context,
     padding and separator targets excluded: the recovery curve of form against k."""
     import math
 
     sums, counts = {}, {}
-    for tokens, targets in contexts(table, count, per_context, separator, model.length, rng):
+    made, whole = _ranked(table, count, per_context, separator, model.length, None, rng, fill)
+    for tokens, targets in made:
         logits, _ = model.forward(tokens)
         rank = 0
         for i, (tok, lg, t) in enumerate(zip(tokens, logits, targets)):
@@ -140,4 +179,4 @@ def form_loss_by_rank(model, table, count, per_context, separator, rng):
             total = sum(math.exp(x.value - m) for x in lg)
             sums[rank] = sums.get(rank, 0.0) + (-(lg[t].value - m) + math.log(total))
             counts[rank] = counts.get(rank, 0) + 1
-    return [sums[r] / counts[r] for r in sorted(sums) if counts[r] > 0]
+    return [sums[r] / counts[r] for r in sorted(sums) if counts[r] > 0 and (whole is None or r < whole)]
