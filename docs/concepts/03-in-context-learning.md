@@ -70,3 +70,47 @@ Every item below is Izzy's unless marked; Claude verified and named the theorem 
 **Two kinds of jump.** A forced direction fails when its derivation fails; a choice fails when the alternative does better. By the night's end the list of choices is empty: the unary bound (cuts), no jumps (superposition), the alphabet (labels are nothing), the length (a swept variable). Everything is forced or read off the model.
 
 **Open, for the morning.** The operations list, Izzy's: for each operation, its order rule (what it does to the sequence of its two daughters: fixed, free, marked) and its weight rule (how the daughters' extensions become the whole's), which together are the composition's count rule. Then the step written with its lean. Then the count is arithmetic and the identifiability statement can be attempted on paper. Izzy: "the stop happens tonight."
+
+## The count (Claude, 2026-10-09; the definitions above turned into arithmetic; for Izzy's strikes)
+
+Everything below is a count or a ratio of counts. Logarithms, where they would make a product a sum, are bookkeeping and are not written.
+
+**Notation.** A table at one world is a binary tree with L leaves, nulls counted as leaves, so L − 1 internal nodes. At each node: a share between the two sisters (they sum to one; the squared moduli, since weights are complex in general), an order ratio, and a phase. A share or an order ratio is resolved to ρ distinguishable values, ρ being the grain: one in L while L is small, the mantissa past the crossover. A phase is resolved to φ values, and φ = 1 at any node that lies on no cycle, since a phase attaches only to a loop and the structure has loops only where a string admits more than one tree. The incidence, which form–cut pairs the world holds, has I distinguishable settings.
+
+**Demand.** The number of tables distinguishable at that resolution is
+
+D = I · (ρ · ρ · φ)^(L − 1),
+
+one share, one order and one phase per node, and the incidence once. That is what full identification would pin.
+
+**Carried by one artifact.** An artifact is one draw of the whole tree, pronounced. It pins the pairs it instantiates (a part of I), and at each node it pins which sister was drawn and which order was drawn: two binary cuts per node. It pins no ratio, because a ratio is a frequency and one draw has none. If the string admits t trees, the artifact pins its tree only to one of t, so its two cuts per node are divided among t candidates: the carried count of one artifact is at most 2^(2(L − 1)) / t distinguishable tree readings.
+
+**Carried by k artifacts from one world.** Draws through a node are independent given the table, so a node seen n times has its share pinned to about √n distinguishable values, the relative uncertainty of a frequency. A node on a path of share π is seen about kπ times. So after k artifacts the share at a node is resolved to
+
+ρ_eff = min(ρ, √(kπ)),
+
+and the same for its order ratio. Depth costs: a node under small shares is seen rarely and resolved coarsely, which is the reframing's "bits per artifact is not a constant" made exact.
+
+**Drift within the window.** Artifacts from different worlds are draws from a moving table. Over s steps with total share movement λ per step (the bounded sum of the superposition), the target has moved by about sλ, and no frequency can pin a share finer than the target has moved:
+
+ρ_eff = min(ρ, √(kπ), 1/(sλ)).
+
+This is the term no bound in the literature has, and it is the only place the index enters the count. s is not ours to set: it is what the model reads out of the window (the belief), so this line is also where the model's own reading becomes a parameter of the bound.
+
+**Phases.** A phase is pinned only by artifacts whose readings interfere, the ambiguous ones. If a fraction a of artifacts admit more than one tree, φ_eff = min(φ, √(ak)). A language with no ambiguity never pins a phase, which is consistent: it has none.
+
+**The residual.** The number of tables still consistent with the k artifacts, over one, is the product over nodes of (ρ/ρ_eff)² · (φ/φ_eff), times the unseen part of the incidence, I/I_seen. That product is the residual as a count. The identifiability statement, first form: the table at a world is identified to its resolution from k artifacts in a window of s steps iff kπ ≥ ρ² at every node, ak ≥ φ² at every node on a cycle, sλ ≤ 1/ρ, and every pair the world holds has occurred; otherwise the residual is the product above, and it is a ratio of counts.
+
+**Where the four gaps bite.**
+
+1. Identification is not prediction. A query's output depends only on the nodes along its own path, so the residual that bounds prediction is the product over that path, not over the tree. The bound on learning is the path-restricted residual; the full residual is the bound on identification. The equivalence is exact when the unpinned nodes off the path change nothing at the query, and the difference between the two products is the size of that assumption.
+2. No initial conditions. The demand is not the whole table but the difference between two readings, training and now: only the nodes whose share, order, phase or incidence moved count, D_Δ = I_Δ · (ρ²φ)^(moved nodes). Consistency is this difference measured; the count makes it a product over moved nodes.
+3. Correlation enters as sλ, and it is content: with λ = 0 the bound is the field's; with λ > 0 it has a ceiling that no k removes.
+4. The tree enters as t and a, the ambiguity: it divides what an artifact carries and it is the only thing that lets a phase be carried at all.
+
+**The two predictions in the count's terms.**
+
+- Claude: recovery at a node is the identified fraction, ρ_eff/ρ, for nodes whose cuts lie in the trained closure, and zero for nodes whose cut is new, I_Δ outside I_trained: a pair the model holds no cut for cannot be pinned by frequency, whatever k. Flat at zero, independent of k, past the closure.
+- Izzy: recovery tracks D_Δ, graded, new pairs included; what the delta does not account for is the residual's remainder, transcendent, and it is incomputable from the artifacts by the identifiability statement itself.
+
+**What the count predicts before any run, where both agree.** Recovery grows as √k at a node and is divided by depth through π; it is capped by drift at 1/(sλ) however large k grows; a phase is learnable only from ambiguous artifacts; and the resolution a model can reach is the coarser of the tree's grain and its own. The disagreement is confined to I_Δ: whether a new pair is recoverable at all. That is the run.
