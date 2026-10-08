@@ -124,39 +124,65 @@ class TestRulerValidity(unittest.TestCase):
 
 
 class TestInterference(unittest.TestCase):
-    def _two_readings(self):
+    """Phases act only where one string has several derivations. The table here has a root with
+    two sisters: the first expands to an inner node that produces (1,) in two readings (a leaf and
+    a null, in either sister), the second produces (2,). Orders are fixed at one so that order
+    ambiguity does not add readings of its own."""
+
+    def _table(self, phase):
         from cocoonml.schema import distribution
 
-        table = generate(forms=1, cuts=1, nonterminals=1, resolution=4, seed=0)
-        node = table.nodes[0]
-        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
-        node.sisters[1].first, node.sisters[1].second = Leaf(0, 0), Leaf(1, 0)
-        for e in node.sisters:
-            e.order = Fraction(1)
-        node.share = Fraction(1, 2)
+        table = generate(forms=2, cuts=1, nonterminals=2, resolution=4, seed=0)
+        root, inner = table.nodes
+        root.sisters[0].first, root.sisters[0].second = 1, Leaf(0, 0)
+        root.sisters[1].first, root.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        root.share, root.phase = Fraction(1, 2), Fraction(0)
+        inner.sisters[0].first, inner.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        inner.sisters[1].first, inner.sisters[1].second = Leaf(0, 0), Leaf(1, 0)
+        inner.share, inner.phase = Fraction(1, 2), phase
+        for node in table.nodes:
+            for e in node.sisters:
+                e.order = Fraction(1)
         return table, distribution
 
     def test_with_zero_phase_two_readings_of_one_string_add_constructively(self):
-        table, distribution = self._two_readings()
-        table.nodes[0].phase = Fraction(0)
-        self.assertAlmostEqual(distribution(table)[(1,)], 1.0)
+        table, distribution = self._table(Fraction(0))
+        dist = distribution(table)
+        # classically (1,) and (2,) would be 1/2 each; constructive interference lifts (1,) above 1/2
+        self.assertGreater(dist[(1,)], 0.5)
 
     def test_with_half_a_turn_the_two_readings_cancel(self):
-        table, distribution = self._two_readings()
-        table.nodes[0].phase = Fraction(1, 2)
+        table, distribution = self._table(Fraction(1, 2))
         dist = distribution(table)
-        # the only string is (1,), and its amplitude cancels to zero: the distribution is empty mass
         self.assertAlmostEqual(dist.get((1,), 0.0), 0.0, places=9)
+        self.assertAlmostEqual(dist[(2,)], 1.0, places=9)
 
-    def test_without_ambiguity_interference_equals_the_classical_distribution(self):
+    def test_without_any_ambiguity_interference_equals_the_classical_distribution(self):
         from cocoonml.schema import distribution
 
         table = generate(forms=2, cuts=1, nonterminals=1, resolution=4, seed=0)
         node = table.nodes[0]
         node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
         node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)  # a null sister in either order is the same string: fix the order
         node.share = Fraction(1, 4)
         node.phase = Fraction(1, 3)  # a phase with nothing to interfere with
         dist = distribution(table)
         self.assertAlmostEqual(dist[(1,)], 0.25)
         self.assertAlmostEqual(dist[(2,)], 0.75)
+
+    def test_a_silent_sister_makes_the_two_orders_one_string_and_they_interfere(self):
+        """Order ambiguity is ambiguity: with a null sister both orders give the same string, and
+        under interference their amplitudes add, so the classical share is not recovered."""
+        from cocoonml.schema import distribution
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        node.sisters[0].order = Fraction(1, 2)
+        node.sisters[1].order = Fraction(1)
+        node.share, node.phase = Fraction(1, 2), Fraction(0)
+        dist = distribution(table)
+        self.assertGreater(dist[(1,)], 0.5)
