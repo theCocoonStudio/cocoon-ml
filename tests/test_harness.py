@@ -246,3 +246,38 @@ class TestExtensionCode(unittest.TestCase):
             tokens, _, _ = filled(table, 9, 40, rng, extension_base=base, pairs=True)
             for t in tokens:
                 self.assertLess(t, base + 20)
+
+
+class TestStream(unittest.TestCase):
+    def test_zero_steps_per_context_is_the_stationary_table(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.harness import stream
+        from cocoonml.schema import delta_magnitude
+
+        table = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1)
+        s = stream(table, random.Random(0), Fraction(1, 4), Fraction(3, 4), Fraction(1, 4), 9, 20, 10, pairs=True, steps_per_context=0)
+        for _ in range(20):
+            _, _, current = next(s)
+            self.assertEqual(delta_magnitude(table, current), 0)
+
+    def test_the_walk_moves_and_stays_within_the_training_radius(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.harness import stream
+        from cocoonml.schema import delta_magnitude
+
+        table = generate(forms=4, cuts=2, nonterminals=3, resolution=8, seed=1)
+        radius = Fraction(2, 8)
+        s = stream(table, random.Random(0), Fraction(3, 8), Fraction(3, 4), radius, 9, 20, 10, pairs=True, steps_per_context=3)
+        moved = 0
+        for _ in range(300):
+            tokens, targets, current = next(s)
+            self.assertEqual(len(tokens), 20)
+            if delta_magnitude(table, current) > 0:
+                moved += 1
+            for node, origin in zip(current.nodes, table.nodes):
+                self.assertLessEqual(abs(node.share - origin.share), radius + Fraction(1, 8))
+                for e, oe in zip(node.sisters, origin.sisters):
+                    self.assertLessEqual(abs(e.order - oe.order), radius + Fraction(1, 8))
+        self.assertGreater(moved, 100)

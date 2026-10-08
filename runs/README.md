@@ -17,5 +17,6 @@ How a sweep runs: from a `git archive` of the branch head unpacked into a scratc
 | 04b | `sweep4.py` | `python3 runs/sweep4.py sweep-04b 6 4 4 4 48 100 64 0,1,2 0 $t $m 1500`, t and m in 1..2 | same |
 | 05a | `sweep5.py` | `python3 runs/sweep5.py sweep-05a 4 3 4 4 40 100 64 0,1,2 0 $t $m 1500 2`, t and m in 1..3 | `2026-10-08-sweep-05-round-1.md` |
 | 05b | `sweep5.py` | `python3 runs/sweep5.py sweep-05b 4 3 4 4 40 100 64 0,1,2 0 $t $m 3000 2 0.1 3 300`, t and m in 1..3; launched 2026-10-08 14:46 | pending |
+| 06 | `sweep6.py` | as 05 plus `[train_radius_grains] [steps_per_context]`: `python3 runs/sweep6.py <name> ... 3000 2 0.1 3 300 <r_train> <steps>`; smoke `smoke-06 3 2 4 3 12 6 8 0,1 0 1 1 60 2 0.3 3 10 1 1` run 2026-10-08 | pending: the training radius and the steps per context are Izzy's numbers |
 
 The smoke lines of sweeps 03 to 05 (`smoke-03`, `smoke-04`, `smoke-04r`, `smoke-05`) are the same scripts at toy size, run once before each launch. The summarisers (`summarise3.py`, `summarise4.py`, `summarise5.py`) take the sweep name and read `runs/<name>-t*m*.log` beside them (`summarise3.py` takes one log).
