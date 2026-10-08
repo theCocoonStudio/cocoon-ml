@@ -6,7 +6,8 @@ from cocoonml.autograd import Autograd
 def softmax_cross_entropy_composed(scores, target):
     """The loss built from primitive operations only. Its backward is the chain rule
     with nothing simplified: the check the fused version is measured against."""
-    exps = [s.exp() for s in scores]
+    shift = max(x.value for x in scores)  # a constant shift leaves the softmax and its gradient unchanged and keeps exp in range
+    exps = [x.add(-shift).exp() for x in scores]
     total = exps[0]
     for e in exps[1:]:
         total = total.add(e)
