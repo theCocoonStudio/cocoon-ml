@@ -24,6 +24,31 @@ def pack(artifacts, separator, length):
     return tokens, targets
 
 
+def _count_vectors(cut_count, total):
+    """Every way `total` cuts can be spread over `cut_count` cut indices, as count vectors in
+    lexicographic order."""
+    if cut_count == 1:
+        return [(total,)]
+    return [(n,) + rest for n in range(total + 1) for rest in _count_vectors(cut_count - 1, total - n)]
+
+
+def extension_code(cuts, cut_count):
+    """The token offset of an extension: the multiset of a derivation's cuts, as a count per cut
+    index, ranked injectively among all count vectors by size then lexicographically, so two
+    extensions share a token only when they are the same multiset. (Until 2026-10-08 the offset was
+    the sum of the cuts, which collapsed distinct extensions of different sizes onto one token: at
+    sweep 05's size five extensions became three tokens, 2.03 bits became 1.39.)"""
+    counts = tuple(cuts.count(c) for c in range(cut_count))
+    size = len(cuts)
+    offset = sum(len(_count_vectors(cut_count, t)) for t in range(1, size))
+    return offset + _count_vectors(cut_count, size).index(counts)
+
+
+def extension_vocabulary(cut_count, max_size):
+    """How many extension tokens a table needs: one per multiset of up to `max_size` cuts."""
+    return sum(len(_count_vectors(cut_count, t)) for t in range(1, max_size + 1))
+
+
 def contexts(table, count, per_context, separator, length, rng, fill=False):
     """`count` contexts, each packing `per_context` draws from the table; with `fill`, draws until
     the next whole artifact does not fit, so every context is full and no position is rare in
@@ -34,6 +59,7 @@ def contexts(table, count, per_context, separator, length, rng, fill=False):
 
 
 def filled(table, separator, length, rng, extension_base=None, pairs=False):
+    cut_count = table.cuts
     """One full context: artifacts drawn until the next whole one does not fit, packed with form
     targets, or with meaning targets when `extension_base` is given, or as (string, extension)
     pairs in the input when `pairs` is set too. Returns (tokens, targets, number of artifacts)."""
@@ -48,9 +74,9 @@ def filled(table, separator, length, rng, extension_base=None, pairs=False):
     if extension_base is None:
         tokens, targets = pack([forms for forms, _ in artifacts], separator, length)
     elif pairs:
-        tokens, targets = pack_pairs(artifacts, separator, length, extension_base)
+        tokens, targets = pack_pairs(artifacts, separator, length, extension_base, cut_count)
     else:
-        tokens, targets = pack_meaning(artifacts, separator, length, extension_base)
+        tokens, targets = pack_meaning(artifacts, separator, length, extension_base, cut_count)
     return tokens, targets, len(artifacts)
 
 
@@ -105,9 +131,9 @@ def run(table, model_seed, width, length, train_steps, batch_size, per_context, 
 # cut) is a measurable failure, and recovery of meaning through a drifted form is the task.
 
 
-def pack_meaning(artifacts, separator, length, extension_base):
+def pack_meaning(artifacts, separator, length, extension_base, cut_count=2):
     """Like pack, but the target at each separator is the artifact's extension token:
-    extension_base + sum of cuts. Elsewhere the target is the next form."""
+    extension_base + `extension_code` of its cuts. Elsewhere the target is the next form."""
     tokens, targets = [], []
     for forms, cuts in artifacts:
         if len(tokens) + len(forms) + 1 > length:
@@ -116,7 +142,7 @@ def pack_meaning(artifacts, separator, length, extension_base):
             tokens.append(f)
             targets.append(forms[i + 1] if i + 1 < len(forms) else separator)
         tokens.append(separator)
-        targets.append(extension_base + sum(cuts))
+        targets.append(extension_base + extension_code(cuts, cut_count))
     while len(tokens) < length:
         tokens.append(separator)
         targets.append(separator)
@@ -139,7 +165,7 @@ def contexts_meaning(table, count, per_context, separator, length, extension_bas
 # (string, extension) pairs in context. The extension token's own target is whatever comes next.
 
 
-def pack_pairs(artifacts, separator, length, extension_base):
+def pack_pairs(artifacts, separator, length, extension_base, cut_count=2):
     """Tokens: forms, separator, extension token, per artifact; targets: the next token, so the
     extension at the separator. An artifact that does not fit whole with its pair is dropped."""
     tokens = []
@@ -148,7 +174,7 @@ def pack_pairs(artifacts, separator, length, extension_base):
             break
         tokens.extend(forms)
         tokens.append(separator)
-        tokens.append(extension_base + sum(cuts))
+        tokens.append(extension_base + extension_code(cuts, cut_count))
     while len(tokens) < length:
         tokens.append(separator)
     targets = tokens[1:] + [separator]

@@ -47,6 +47,7 @@ class Node:
 class Table:
     nodes: list  # Node per nonterminal; nonterminal 0 is the root
     resolution: int  # ρ: distinguishable values of a share or an order ratio
+    cuts: int = 2  # how many cuts a leaf can carry (cut indices 0 .. cuts - 1)
 
     def copy(self):
         return Table(
@@ -59,6 +60,7 @@ class Table:
                 for n in self.nodes
             ],
             resolution=self.resolution,
+            cuts=self.cuts,
         )
 
 
@@ -92,7 +94,7 @@ def generate(forms, cuts, nonterminals, resolution, seed):
     for i in range(nonterminals):
         sisters = tuple(Expansion(symbol(i), symbol(i), ratio()) for _ in range(2))
         nodes.append(Node(sisters=sisters, share=ratio(), phase=Fraction(0)))
-    return Table(nodes=nodes, resolution=resolution)
+    return Table(nodes=nodes, resolution=resolution, cuts=cuts)
 
 
 def draw(table, rng, start=0):
@@ -642,3 +644,9 @@ def identification_excess(table, artifacts):
         per_node.append(excess)
         values.append(excess)
     return (sum(values) / len(values) if values else None), per_node
+
+
+def max_extension_size(table):
+    """The most cuts any derivation of the table carries: the largest extension, which bounds the
+    extension vocabulary (`harness.extension_vocabulary`)."""
+    return max(len(cuts) for _, cuts, _ in _all_derivations(table))
