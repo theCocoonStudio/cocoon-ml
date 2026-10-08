@@ -562,10 +562,12 @@ class TestIdentificationExcess(unittest.TestCase):
         for e in node.sisters:
             e.order = Fraction(1)
         node.share = Fraction(1, 2)
-        window = [(1,), (1,), (1,), (2,)]  # estimate 3/4, error 1/4, floor √(1/4 / 4) = 1/4
+        import math
+
+        window = [(1,), (1,), (1,), (2,)]  # estimate 3/4, error 1/4, floor √(2/π) · √(1/4 / 4)
         mean, per_node = identification_excess(table, window)
-        self.assertAlmostEqual(mean, 0.0)
-        self.assertAlmostEqual(per_node[0], 0.0)
+        self.assertAlmostEqual(mean, 0.25 - math.sqrt(2 / math.pi) * 0.25)
+        self.assertAlmostEqual(per_node[0], mean)
         node.share = Fraction(1)
         self.assertAlmostEqual(identification_excess(table, [(1,)] * 4)[0], 0.0)
         self.assertEqual(identification_excess(table, [])[0], None)
