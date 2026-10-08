@@ -186,3 +186,53 @@ class TestInterference(unittest.TestCase):
         node.share, node.phase = Fraction(1, 2), Fraction(0)
         dist = distribution(table)
         self.assertGreater(dist[(1,)], 0.5)
+
+
+class TestTheoremOne(unittest.TestCase):
+    """T1: a node visited by no derivation consistent with the prefix does not change the
+    predictive distribution at the next position, whatever its share, order or phase."""
+
+    def test_an_unvisited_node_does_not_move_the_prediction(self):
+        from cocoonml.schema import predictive, visited_by_consistent_derivations
+
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=13)
+        root, a, b = table.nodes
+        # root chooses between two subtrees that begin with different forms, so a prefix picks one
+        root.sisters[0].first, root.sisters[0].second = Leaf(1, 0), 1
+        root.sisters[1].first, root.sisters[1].second = Leaf(2, 0), 2
+        for e in root.sisters:
+            e.order = Fraction(1)
+        a.sisters[0].first, a.sisters[0].second = Leaf(3, 0), Leaf(0, 0)
+        a.sisters[1].first, a.sisters[1].second = Leaf(1, 1), Leaf(0, 0)
+        b.sisters[0].first, b.sisters[0].second = Leaf(2, 0), Leaf(0, 0)
+        b.sisters[1].first, b.sisters[1].second = Leaf(3, 1), Leaf(0, 0)
+        for node in (a, b):
+            for e in node.sisters:
+                e.order = Fraction(1)
+        prefix = (1,)
+        self.assertNotIn(2, visited_by_consistent_derivations(table, prefix))
+        before = predictive(table, prefix)
+        b.share, b.phase = Fraction(7, 8), Fraction(1, 3)
+        b.sisters[0].order = Fraction(1, 4)
+        after = predictive(table, prefix)
+        self.assertEqual(set(before), set(after))
+        for k in before:
+            self.assertAlmostEqual(before[k], after[k], places=12)
+
+    def test_a_visited_node_does_move_the_prediction(self):
+        from cocoonml.schema import predictive
+
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=13)
+        root, a, b = table.nodes
+        root.sisters[0].first, root.sisters[0].second = Leaf(1, 0), 1
+        root.sisters[1].first, root.sisters[1].second = Leaf(2, 0), 2
+        a.sisters[0].first, a.sisters[0].second = Leaf(3, 0), Leaf(0, 0)
+        a.sisters[1].first, a.sisters[1].second = Leaf(1, 1), Leaf(0, 0)
+        for node in table.nodes:
+            for e in node.sisters:
+                e.order = Fraction(1)
+        a.share = Fraction(1, 2)
+        before = predictive(table, (1,))
+        a.share = Fraction(7, 8)
+        after = predictive(table, (1,))
+        self.assertNotAlmostEqual(before[3], after[3], places=6)
