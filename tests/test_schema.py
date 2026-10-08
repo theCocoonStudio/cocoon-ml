@@ -273,3 +273,37 @@ class TestProjections(unittest.TestCase):
             e.order = Fraction(1)
         node.share = Fraction(3, 4)
         self.assertLess(cost_of(table, (1,)), cost_of(table, (2,)))
+
+
+class TestNEff(unittest.TestCase):
+    def test_modulus_grade_rises_with_artifacts_and_phase_grade_is_zero_without_ambiguity(self):
+        from cocoonml.schema import n_eff
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        rng = random.Random(0)
+        few = [draw(table, rng)[0] for _ in range(4)]
+        many = [draw(table, rng)[0] for _ in range(100)]
+        n_few, g_few = n_eff(table, few, phase_resolution=4)
+        n_many, g_many = n_eff(table, many, phase_resolution=4)
+        self.assertLess(n_few, n_many)
+        self.assertEqual(g_few[0][1], 0.0)
+        self.assertEqual(g_many[0][1], 0.0)
+        self.assertEqual(g_many[0][0], 1.0)
+
+    def test_phase_grade_rises_only_through_ambiguous_strings(self):
+        from cocoonml.schema import n_eff
+
+        table = generate(forms=1, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(0, 0), Leaf(1, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        artifacts = [(1,)] * 16
+        _, grades = n_eff(table, artifacts, phase_resolution=4)
+        self.assertEqual(grades[0][1], 1.0)

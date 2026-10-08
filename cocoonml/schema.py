@@ -332,3 +332,35 @@ def cost_of(table, string):
             total += _amplitude(table, choices)
     r = abs(total)
     return -math.log(r) if r > 0 else math.inf
+
+
+# --- n_eff: what a window pins ----------------------------------------------------------------
+# The independent projections of the carrier are two: the modulus and the phase (cost is the
+# modulus read at coarse grain, pinned whenever the modulus is). For a window of artifacts:
+#   modulus grade at a node = min(1, √visits / ρ)        (a frequency is pinned to about √n levels)
+#   phase grade at a node   = min(1, √ambiguous_visits / φ) (a phase shows only through strings
+#                                                            with more than one derivation)
+# n_eff for the window is the sum of grades over nodes, over 2 · nodes: a ratio of counts.
+# Operational reading (Claude, 2026-10-09), marked; Izzy strikes.
+
+
+def n_eff(table, artifacts, phase_resolution):
+    """(n_eff as a Fraction-like float in [0, 1], per-node grades [(modulus, phase), ...])."""
+    visits = [0] * len(table.nodes)
+    ambiguous = [0] * len(table.nodes)
+    for string in artifacts:
+        # a derivation of zero amplitude (a share or an order at zero) is not a reading the world
+        # produces, so ambiguity is counted over the readings with nonzero amplitude
+        ds = [d for d in derivations(table, string) if abs(_amplitude(table, d)) > 0]
+        for d in ds:
+            for node, _, _ in d:
+                visits[node] += 1
+                if len(ds) > 1:
+                    ambiguous[node] += 1
+    grades = []
+    for node_index in range(len(table.nodes)):
+        m = min(1.0, math.sqrt(visits[node_index]) / table.resolution)
+        p = min(1.0, math.sqrt(ambiguous[node_index]) / phase_resolution) if phase_resolution > 0 else 0.0
+        grades.append((m, p))
+    total = sum(m + p for m, p in grades)
+    return total / (2 * len(table.nodes)), grades
