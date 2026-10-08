@@ -50,14 +50,16 @@ def loss_by_position(model, table, count, per_context, separator, rng):
     return [s / count for s in sums]
 
 
-def drifted(table, steps, bound, lean, rng):
-    """The table after `steps` moves of the index."""
+def drifted(table, steps, bound, lean, rng, radius=None):
+    """The table after `steps` moves of the index, each pulled toward the origin within `radius`
+    (no pull when radius is None)."""
+    origin = table
     for _ in range(steps):
-        table = step(table, rng, bound, lean)
+        table = step(table, rng, bound, lean, centre=origin, radius=radius)
     return table
 
 
-def run(table, model_seed, width, length, train_steps, batch_size, per_context, lr, drift_steps, bound, lean, eval_count, seed):
+def run(table, model_seed, width, length, train_steps, batch_size, per_context, lr, drift_steps, bound, lean, eval_count, seed, radius=None):
     """The whole apparatus once: train on the table, read the curve on the table and on its
     drifted version. Returns (train_losses, curve_same, curve_drifted, delta_steps)."""
     rng = random.Random(seed)
@@ -66,7 +68,7 @@ def run(table, model_seed, width, length, train_steps, batch_size, per_context, 
     model = Attention(vocab=vocab, width=width, length=length, seed=model_seed)
     train_losses = train(model, table, train_steps, batch_size, per_context, separator, lr, rng)
     same = loss_by_position(model, table, eval_count, per_context, separator, rng)
-    moved = drifted(table, drift_steps, bound, lean, rng)
+    moved = drifted(table, drift_steps, bound, lean, rng, radius)
     after = loss_by_position(model, moved, eval_count, per_context, separator, rng)
     return train_losses, same, after, moved
 
