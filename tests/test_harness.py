@@ -172,9 +172,18 @@ class TestPlateau(unittest.TestCase):
         from cocoonml.harness import train_until_plateau
 
         flat = self.Stub(lambda n: 1.0)
-        self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500)), 20)
+        self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500)[0]), 20)
         halving = self.Stub(lambda n: 2.0 ** -n)
-        self.assertEqual(len(train_until_plateau(halving, lambda: None, 0.1, window=10, cap=60)), 60)
+        self.assertEqual(len(train_until_plateau(halving, lambda: None, 0.1, window=10, cap=60)[0]), 60)
+
+    def test_with_a_held_out_evaluation_the_rule_reads_the_evaluations_not_the_batches(self):
+        from cocoonml.harness import train_until_plateau
+
+        noisy = self.Stub(lambda n: 1.0 + (0.5 if n % 2 else -0.5))  # batch losses that never settle
+        readings = iter([2.0, 1.5, 1.2, 1.19, 1.0])
+        losses, evaluations = train_until_plateau(noisy, lambda: None, 0.1, window=10, cap=500, evaluate=lambda: next(readings))
+        self.assertEqual(evaluations, [2.0, 1.5, 1.2, 1.19])  # stops when a reading improves by under one percent
+        self.assertEqual(len(losses), 40)
 
 
 class TestScrambledPairs(unittest.TestCase):
