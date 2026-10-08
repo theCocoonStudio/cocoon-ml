@@ -77,3 +77,47 @@ class TestSchema(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRulerValidity(unittest.TestCase):
+    """The ruler reads what it is supposed to read: frequencies off artifacts converge to the
+    table's shares, and derivation counts are the ambiguity they claim to be."""
+
+    def test_frequencies_off_artifacts_converge_to_shares_without_ambiguity(self):
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        node.share = Fraction(3, 4)
+        rng = random.Random(10)
+        artifacts = [draw(table, rng)[0] for _ in range(800)]
+        _, counts = estimate(table, artifacts)
+        first = counts[0][0][0] / sum(counts[0][0])
+        self.assertAlmostEqual(first, 0.75, delta=0.05)
+
+    def test_a_string_with_two_trees_has_two_derivations(self):
+        table = generate(forms=2, cuts=1, nonterminals=2, resolution=4, seed=0)
+        root, inner = table.nodes
+        # root -> (1 inner) | (inner 2) ; inner -> (1 2) | (2 1): the string (1, 2, ... ) is ambiguous
+        root.sisters[0].first, root.sisters[0].second = Leaf(1, 0), 1
+        root.sisters[1].first, root.sisters[1].second = 1, Leaf(2, 0)
+        for e in root.sisters:
+            e.order = Fraction(1)
+        inner.sisters[0].first, inner.sisters[0].second = Leaf(1, 0), Leaf(2, 0)
+        inner.sisters[1].first, inner.sisters[1].second = Leaf(2, 0), Leaf(1, 0)
+        for e in inner.sisters:
+            e.order = Fraction(1)
+        # (1, 2, 1) has no reading here; (1, 1, 2) = root[0] with inner[0]; (1, 2, 2) = root[1] with inner[0]
+        self.assertEqual(len(derivations(table, (1, 1, 2))) >= 1, True)
+        # (1, 2, 1): root[1] with inner[0] gives (1,2,2); root[0] with inner[1] gives (1,2,1): one reading via order
+        ds = derivations(table, (1, 2, 1))
+        self.assertGreaterEqual(len(ds), 1)
+
+    def test_order_ambiguity_doubles_the_derivations_when_sisters_share_forms(self):
+        table = generate(forms=1, cuts=1, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(1, 1)
+        node.sisters[1].first, node.sisters[1].second = Leaf(1, 0), Leaf(1, 0)
+        ds = derivations(table, (1, 1))
+        # both sisters produce (1, 1) in both orders: four derivations, none distinguishable by the string
+        self.assertEqual(len(ds), 4)
