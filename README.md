@@ -22,6 +22,6 @@ No install, no dependencies. Python 3.11 or later.
 
 1. `docs/concepts/01-autograd.md`, `cocoonml/autograd.py`
 2. `docs/concepts/02-softmax-cross-entropy.md`, `cocoonml/loss.py`: the loss composed from primitives as the check; the fused loss waits for its derivation
-3. `docs/concepts/03-in-context-learning.md`: the first unsolved problem, its objects, the drift test, both predictions lodged before any run, the count
+3. `docs/concepts/03-in-context-learning.md` and `docs/reviews/` (the dialectical rounds against the count): the first unsolved problem, its objects, the drift test, both predictions lodged before any run, the count
    - `cocoonml/schema.py`: the constructed drift source: a table, its draws, its steps, the delta, the estimate off artifacts
    - `cocoonml/attention.py`: one layer of causal softmax attention on the scalar autograd, with a probe

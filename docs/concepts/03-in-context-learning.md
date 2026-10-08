@@ -93,7 +93,9 @@ and the same for its order ratio. Depth costs: a node under small shares is seen
 
 **Drift within the window.** Artifacts from different worlds are draws from a moving table. Over s steps with total share movement λ per step (the bounded sum of the superposition), the target has moved by about sλ, and no frequency can pin a share finer than the target has moved:
 
-ρ_eff = min(ρ, √(kπ), 1/(sλ)).
+ρ_eff = min(ρ, √(kπ), 1/(sλ_node)),
+
+with λ_node the share movement at that node per step (the table's bounded total λ spread over its nodes; round one, item 3).
 
 This is the term no bound in the literature has, and it is the only place the index enters the count. s is not ours to set: it is what the model reads out of the window (the belief), so this line is also where the model's own reading becomes a parameter of the bound.
 
