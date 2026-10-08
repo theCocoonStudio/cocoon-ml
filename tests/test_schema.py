@@ -254,6 +254,49 @@ class TestTheoremOne(unittest.TestCase):
         for k in before:
             self.assertAlmostEqual(before[k], after[k], places=12)
 
+    def test_two_strings_that_share_a_prefix_add_as_probabilities_and_do_not_interfere(self):
+        """Round one, item 9: (1, 2) and (1, 2, 3) at half a turn from each other. Summing their
+        amplitudes before squaring would cancel the next form 2 to nothing; as distinct strings
+        they add, and 2 is certain after 1."""
+        from cocoonml.schema import distribution, predictive
+
+        table = generate(forms=3, cuts=1, nonterminals=2, resolution=8, seed=0)
+        root, a = table.nodes
+        root.sisters[0].first, root.sisters[0].second = Leaf(1, 0), Leaf(2, 0)
+        root.sisters[1].first, root.sisters[1].second = Leaf(1, 0), 1
+        for e in root.sisters:
+            e.order = Fraction(1)
+        for e in a.sisters:
+            e.first, e.second, e.order = Leaf(2, 0), Leaf(3, 0), Fraction(1)
+        a.share, root.share, root.phase = Fraction(1), Fraction(1, 2), Fraction(1, 2)
+        dist = distribution(table)
+        self.assertAlmostEqual(dist[(1, 2)], 0.5)
+        self.assertAlmostEqual(dist[(1, 2, 3)], 0.5)
+        self.assertEqual(predictive(table, (1,)), {2: 1.0})
+        after_two = predictive(table, (1, 2))
+        self.assertAlmostEqual(after_two[3], 0.5)
+        self.assertAlmostEqual(after_two[None], 0.5)
+
+    def test_predictive_is_the_conditional_of_distribution_on_a_random_table_with_phases(self):
+        from cocoonml.schema import distribution, predictive
+
+        rng = random.Random(3)
+        checked = 0
+        for seed in range(12):
+            table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=seed)
+            for node in table.nodes:
+                node.phase = Fraction(rng.randrange(0, 8), 8)
+            dist = {s: p for s, p in distribution(table).items() if p > 0}
+            string = draw(table, rng)[0]
+            for cut in range(len(string) + 1):
+                prefix = string[:cut]
+                denominator = sum(p for s, p in dist.items() if s[:cut] == prefix)
+                for nxt, q in predictive(table, prefix).items():
+                    numerator = sum(p for s, p in dist.items() if s[:cut] == prefix and (s[cut] if len(s) > cut else None) == nxt)
+                    self.assertAlmostEqual(q, numerator / denominator, places=12)
+                    checked += 1
+        self.assertGreater(checked, 20)
+
     def test_a_visited_node_does_move_the_prediction(self):
         from cocoonml.schema import predictive
 
