@@ -75,6 +75,8 @@ def generate(forms, cuts, nonterminals, resolution, seed):
     """A table realised from counts: `forms` non-empty forms (plus the empty one), `cuts` cuts,
     `nonterminals` nodes. Nonterminal i expands only into nonterminals > i or leaves, so every
     draw terminates. The last nonterminal expands only into leaves."""
+    if resolution < 2:
+        raise ValueError("resolution must be at least 2: a ratio needs a value strictly between its ends")
     rng = random.Random(seed)
 
     def symbol(i):
@@ -150,7 +152,8 @@ def step(table, rng, bound, lean, centre=None, radius=None):
     """One move of the index: a superposition of small moves, one grain per node at most, their
     expected total bounded by `bound` (the bound spread over the nodes, as a probability of moving
     one grain). A share that moves takes one grain in a direction leaned by `lean` toward the sister
-    that contains a null; an order ratio takes one grain in a direction of its own. A move past an
+    that contains a null, when exactly one of the two does; an order ratio takes one grain in a
+    direction of its own. A move past an
     end reflects, so no value is absorbing: a share at zero is a removed sister, and it returns.
     With a `centre` table and a `radius`, a move is pulled toward the centre's value with
     probability displacement over radius, a restoring pull proportional to the displacement: the
@@ -456,7 +459,8 @@ def delta_magnitude(a, b):
 
 def estimate_shares(table_shape, artifacts):
     """Per node: (share estimate, its weight, [(order estimate, weight) per sister]); an estimate
-    is None where no derivation visited it. Weights are observations, strings counting once."""
+    is None where no derivation visited it. Weights are observations, strings counting once. A
+    string the shape cannot produce has no derivation and counts as nothing."""
     n = len(table_shape.nodes)
     sister_w = [[0.0, 0.0] for _ in range(n)]
     order_w = [[[0.0, 0.0], [0.0, 0.0]] for _ in range(n)]
