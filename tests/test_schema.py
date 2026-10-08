@@ -507,3 +507,45 @@ class TestEntropyFloors(unittest.TestCase):
         table = self._table()
         table.nodes[1].share = Fraction(1)
         self.assertAlmostEqual(entropy_floor_form(table), 0.0)
+
+
+class TestRemap(unittest.TestCase):
+    """Sweep 03, round one, item 3: a move on the incidence, apart from the step."""
+
+    def _table(self):
+        table = generate(forms=3, cuts=2, nonterminals=2, resolution=8, seed=2)
+        root, a = table.nodes
+        root.sisters[0].first, root.sisters[0].second = Leaf(1, 0), 1
+        root.sisters[1].first, root.sisters[1].second = Leaf(2, 0), 1
+        a.sisters[0].first, a.sisters[0].second = Leaf(3, 0), Leaf(0, 0)
+        a.sisters[1].first, a.sisters[1].second = Leaf(3, 1), Leaf(0, 0)
+        for node in table.nodes:
+            for e in node.sisters:
+                e.order = Fraction(1)
+        return table
+
+    def test_remap_moves_exactly_count_cuts_and_leaves_the_strings_alone(self):
+        from cocoonml.schema import classical_joint, cuts_of, distribution, incidence_delta, remap
+
+        table = self._table()
+        self.assertEqual(cuts_of(table), [0, 1])
+        moved, moves = remap(table, random.Random(0), 2)
+        self.assertEqual(len(moves), 2)
+        self.assertEqual(incidence_delta(table, moved), Fraction(2, 6))  # six leaf slots (two are nonterminals), nulls included
+        before, after = distribution(table), distribution(moved)
+        self.assertEqual(set(before), set(after))
+        for string in before:
+            self.assertAlmostEqual(before[string], after[string], places=12)
+        self.assertNotEqual(classical_joint(table), classical_joint(moved))
+        self.assertEqual(incidence_delta(table, table), 0)
+
+    def test_remap_refuses_one_cut_and_too_many_leaves(self):
+        from cocoonml.schema import remap
+
+        table = self._table()
+        with self.assertRaises(ValueError):
+            remap(table, random.Random(0), 5)  # four spoken leaves
+        one_cut = self._table()
+        one_cut.nodes[1].sisters[1].first = Leaf(3, 0)
+        with self.assertRaises(ValueError):
+            remap(one_cut, random.Random(0), 1)
