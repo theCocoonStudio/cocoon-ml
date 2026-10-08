@@ -26,3 +26,23 @@ class TestHarness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMeaning(unittest.TestCase):
+    def test_pack_meaning_puts_the_extension_at_the_separator(self):
+        from cocoonml.harness import pack_meaning
+
+        tokens, targets = pack_meaning([((1, 2), (0, 1, 1)), ((3,), (1,))], separator=9, length=6, extension_base=10)
+        self.assertEqual(tokens, [1, 2, 9, 3, 9, 9])
+        self.assertEqual(targets, [2, 9, 12, 9, 11, 9])
+
+    def test_meaning_curve_has_one_entry_per_artifact_in_the_context(self):
+        import random
+        from cocoonml.attention import Attention
+        from cocoonml.harness import meaning_loss_at_separators
+
+        table = generate(forms=3, cuts=2, nonterminals=2, resolution=4, seed=11)
+        model = Attention(vocab=20, width=3, length=8, seed=1)
+        curve = meaning_loss_at_separators(model, table, count=3, per_context=2, separator=5, length=8, extension_base=10, rng=random.Random(0))
+        self.assertGreaterEqual(len(curve), 1)
+        self.assertLessEqual(len(curve), 2)
