@@ -21,3 +21,13 @@ The rule: no number reaches Izzy until two full rounds and two further replicati
 **Added the same day, from the harness:** next-form prediction reads only the orthographic side; the protocol side needs a target that depends on the cuts. `pack_meaning` puts each artifact's extension at its separator as a token, and `meaning_loss_at_separators` reads the recovery of meaning against k. Closed in code before round two could raise it.
 
 Verdict after round one: the count stands conditional on item 1, with item 3 corrected in the statement, items 4 and 6 declared as gaps, item 5 folded into the ambiguity term, and item 7 the first theorem to attempt. Nothing in it is a number yet.
+
+## T1, the first theorem of the toy (Claude, 2026-10-09; proved by the definition, held by a test)
+
+**Statement.** In the constructed source, the predictive distribution of the next form given a prefix depends only on the nodes visited by some derivation consistent with the prefix. A node visited by none has no effect, whatever its share, order or phase.
+
+**Proof.** The predictive distribution is a ratio of two sums over derivations consistent with the prefix, each term a product over the derivation's visits of that node's amplitude. A node visited by no consistent derivation appears in no term of either sum. Hence both sums, and their ratio, are independent of it. Interference does not change this: the sums are over the same consistent set. ∎
+
+**What it gives the count.** Gap one, identification against prediction, has its first half: the residual that bounds prediction is at most the residual over the consistent-derivation set, never the whole tree. What it does not give: how much a node visited by some consistent derivations and not others matters, which is the weighted version and is the next theorem.
+
+**Test.** `TestTheoremOne` in `tests/test_schema.py`: an unvisited node's share, order and phase are moved and the prediction is unchanged to twelve places; a visited node's share is moved and the prediction moves.
