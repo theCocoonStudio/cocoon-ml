@@ -487,7 +487,10 @@ def estimate_shares(table_shape, artifacts):
 
 def identification_error(table, artifacts):
     """(mean absolute share error over the nodes the window identifies, or None; coverage, the
-    identified fraction of nodes; per node (share error or None, [order error or None per sister]))."""
+    identified fraction of nodes; per node (share error or None, [order error or None per sister])).
+    The error is the reader's whole error: sampling error, and the ambiguity error, since a string
+    that does not tell the sisters apart at a node pulls the estimate toward one half however many
+    such strings the window holds (the empty world: every string empty, the root read at one half)."""
     estimates = estimate_shares(table, artifacts)
     per_node, errors = [], []
     for node, (share, _, orders) in zip(table.nodes, estimates):
