@@ -303,8 +303,8 @@ def predictive(table, prefix):
     """{next form or None (end): probability} given the prefix, the conditional of distribution."""
     probs = {}
     for forms, p in distribution(table).items():
-        if forms[: len(prefix)] != tuple(prefix):
-            continue
+        if p <= 0 or forms[: len(prefix)] != tuple(prefix):
+            continue  # a string of probability zero is not one the world produces
         nxt = forms[len(prefix)] if len(forms) > len(prefix) else None
         probs[nxt] = probs.get(nxt, 0.0) + p
     total = sum(probs.values())
