@@ -23,11 +23,11 @@ A run is designed to encapsulate as many tests as possible; conceptual loose end
 
 ## Predictions, lodged before any run
 
-Izzy (2026-10-08, verbatim): "the drift opens the family. and it's graded. just like i could communicate with people in china if neither of us spoke each others language. if you train with non deterministic data, the weights account for the drift predictably. so we disagree. if the model is trained on deterministic data, there is no difference. the model only tracks the family."
+Izzy (2026-10-08, verbatim): "the drift opens the family. and it's graded. just like i could communicate with people in china if neither of us spoke each others language. if you train with non deterministic data, the weights account for the drift predictably [Izzy considered correcting this to "predictively" and left it; the note is at their ask]. so we disagree. if the model is trained on deterministic data, there is no difference. the model only tracks the family."
 
 Claude (2026-10-07): the prompt selects within the class the weights fix; recovery works for remappings within the family training contained and fails sharply, unimproved by examples, for meanings outside it.
 
-They separate on out-of-family remapping under non-deterministic training. "Class change" (Izzy, 2026-10-07) was withdrawn by Izzy as a name that admits every solution.
+They separate on out-of-family remapping under non-deterministic training. Izzy, added later for the record: Claude's prediction is probably right for current models, and Izzy's is right for what is being developed here. The two predictions are about two paradigms, not one, and that distinction is a concept both repos share, cocoon-ml and cocoon-relations. "Class change" (Izzy, 2026-10-07) was withdrawn by Izzy as a name that admits every solution.
 
 ## Hurdles
 
