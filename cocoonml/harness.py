@@ -69,3 +69,50 @@ def run(table, model_seed, width, length, train_steps, batch_size, per_context, 
     moved = drifted(table, drift_steps, bound, lean, rng)
     after = loss_by_position(model, moved, eval_count, per_context, separator, rng)
     return train_losses, same, after, moved
+
+
+# --- Meaning, not only form -----------------------------------------------------------------------
+# Next-form prediction reads the orthographic side. The protocol side needs a target that depends
+# on the cuts: at each separator the target is the artifact's EXTENSION, the sum of its cuts,
+# offset past the forms so it is a token of its own. Then drift of the incidence (same form, new
+# cut) is a measurable failure, and recovery of meaning through a drifted form is the task.
+
+
+def pack_meaning(artifacts, separator, length, extension_base):
+    """Like pack, but the target at each separator is the artifact's extension token:
+    extension_base + sum of cuts. Elsewhere the target is the next form."""
+    tokens, targets = [], []
+    for forms, cuts in artifacts:
+        for i, f in enumerate(forms):
+            tokens.append(f)
+            targets.append(forms[i + 1] if i + 1 < len(forms) else separator)
+        tokens.append(separator)
+        targets.append(extension_base + sum(cuts))
+    tokens, targets = tokens[:length], targets[:length]
+    while len(tokens) < length:
+        tokens.append(separator)
+        targets.append(separator)
+    return tokens, targets
+
+
+def contexts_meaning(table, count, per_context, separator, length, extension_base, rng):
+    return [pack_meaning([draw(table, rng) for _ in range(per_context)], separator, length, extension_base) for _ in range(count)]
+
+
+def meaning_loss_at_separators(model, table, count, per_context, separator, length, extension_base, rng):
+    """Mean cross-entropy of the extension targets, in order of the separator's rank within the
+    context (first artifact, second, ...): the recovery curve of meaning against k."""
+    import math
+
+    sums, counts = {}, {}
+    for tokens, targets in contexts_meaning(table, count, per_context, separator, length, extension_base, rng):
+        logits, _ = model.forward(tokens)
+        rank = 0
+        for i, (tok, lg, t) in enumerate(zip(tokens, logits, targets)):
+            if tok == separator and t >= extension_base:
+                m = max(x.value for x in lg)
+                total = sum(math.exp(x.value - m) for x in lg)
+                sums[rank] = sums.get(rank, 0.0) + (-(lg[t].value - m) + math.log(total))
+                counts[rank] = counts.get(rank, 0) + 1
+                rank += 1
+    return [sums[r] / counts[r] for r in sorted(sums)]
