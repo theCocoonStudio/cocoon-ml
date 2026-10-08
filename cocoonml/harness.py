@@ -214,3 +214,22 @@ def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=Fal
             sums[rank] = sums.get(rank, 0.0) + (-(lg[t].value - m) + math.log(total))
             counts[rank] = counts.get(rank, 0) + 1
     return [sums[r] / counts[r] for r in sorted(sums) if counts[r] > 0 and (whole is None or r < whole)]
+
+
+# --- Training to a plateau (sweep 02 round one, item 6; sweep 03, item 6) ----------------------
+# A fixed step count left every cell still falling. The rule: train until the mean loss over the
+# last `window` steps improves on the previous window's by less than `tolerance` of it, or `cap`.
+
+
+def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=2000):
+    """Train step by step on make_batch() until the plateau rule holds or the cap; returns the
+    losses, so the caller can report whether the cap or the rule ended training."""
+    losses = []
+    while len(losses) < cap:
+        losses.append(model.train_step(make_batch(), lr))
+        if len(losses) >= 2 * window:
+            last = sum(losses[-window:]) / window
+            before = sum(losses[-2 * window : -window]) / window
+            if last >= before * (1 - tolerance):
+                break
+    return losses
