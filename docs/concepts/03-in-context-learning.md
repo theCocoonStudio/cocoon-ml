@@ -71,7 +71,7 @@ Every item below is Izzy's unless marked; Claude verified and named the theorem 
 
 **Open, for the morning.** The operations list, Izzy's: for each operation, its order rule (what it does to the sequence of its two daughters: fixed, free, marked) and its weight rule (how the daughters' extensions become the whole's), which together are the composition's count rule. Then the step written with its lean. Then the count is arithmetic and the identifiability statement can be attempted on paper. Izzy: "the stop happens tonight."
 
-## The count (Claude, 2026-10-09; the definitions above turned into arithmetic; for Izzy's strikes)
+## The count (Claude, 2026-10-08; the definitions above turned into arithmetic; for Izzy's strikes)
 
 Everything below is a count or a ratio of counts. Logarithms, where they would make a product a sum, are bookkeeping and are not written.
 
@@ -117,7 +117,7 @@ This is the term no bound in the literature has, and it is the only place the in
 
 **What the count predicts before any run, where both agree.** Recovery grows as √k at a node and is divided by depth through π; it is capped by drift at 1/(sλ) however large k grows; a phase is learnable only from ambiguous artifacts; and the resolution a model can reach is the coarser of the tree's grain and its own. The disagreement is confined to I_Δ: whether a new pair is recoverable at all. That is the run.
 
-## Operational reading in the code, and one question (Claude, 2026-10-09)
+## Operational reading in the code, and one question (Claude, 2026-10-08)
 
 `cocoonml/schema.py` realises the table as a binary grammar: every nonterminal has two sisters that are alternative expansions, their shares summing to one, and each expansion is a merge of two symbols with an order ratio. In that reading a share is the share of the world's traffic that takes one alternative, which is what "a leaf's weight is its share of the world's traffic" says, and what the count's "which sister was drawn" uses.
 
@@ -127,7 +127,7 @@ The question, Izzy's: are shares frequencies of alternatives, weights on daughte
 
 Also: `cocoonml/harness.py` packs several artifacts into one context with a separator form and reads loss by position as the recovery curve inside one window; `run()` trains on a table, reads the curve on it and on its drifted version. A smoke run of the chain exists in Claude's scratch; its numbers are under the rule and are not on this page.
 
-## The weight rule as a semiring, and the shares question closed (2026-10-09, after Izzy's "2 + n")
+## The weight rule as a semiring, and the shares question closed (2026-10-08, after Izzy's "2 + n")
 
 Izzy: a tree is not two-dimensional; it is 2 + n, with n hidden, and the two are the axes of syntax and semantics. The two readings of a share were two visible axes of one object, not a fork, and the list of what a share can count is open, finite only to a reader. Izzy asked for the constraints on F, the function at a node; Claude's lookup, forced by that:
 
@@ -139,6 +139,6 @@ The shares question is closed by this, not by a choice: a sister's amplitude is 
 
 The count, restated over the semiring: demand and carried are per projection, frequency pinned by draws, cost by the same draws read at coarse grain, phase only by ambiguous strings; the residual is the product over the projections a window fails to pin, and n_eff, the number of projections it pins at all, is the first number the apparatus can read without any theory.
 
-## n_eff, operationally (Claude, 2026-10-09, marked)
+## n_eff, operationally (Claude, 2026-10-08, marked)
 
 The independent projections of the carrier are two, modulus and phase; cost is the modulus at coarse grain and is pinned whenever the modulus is. For a window of artifacts, per node: the modulus grade is √visits over ρ, capped at one, a frequency being pinned to about √n levels; the phase grade is √(ambiguous visits) over φ, capped at one, a phase showing only through strings with more than one reading of nonzero amplitude. n_eff is the sum of grades over nodes, over twice the node count: a ratio of counts, the share of what a window pins of what the table has. `n_eff` in `cocoonml/schema.py`; tests: the modulus grade rises with artifacts, the phase grade is zero without ambiguity and rises only through it. Found by the test: a zero-amplitude derivation is not a reading, so ambiguity counts readings the world can produce, not every bracketing the grammar admits.

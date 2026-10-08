@@ -1,8 +1,8 @@
-# The count, dialectical round one (Claude against Claude, 2026-10-09)
+# The count, dialectical round one (Claude against Claude, 2026-10-08)
 
 The rule: no number reaches Izzy until two full rounds and two further replications. This is the first round, taken against the count on the concept page and the code that realises it, before any number exists. Each item: the objection, what it does to the count, and what closes it.
 
-1. **Shares: frequencies or weights.** *Closed on 2026-10-09 by Izzy's 2 + n: the two readings are the two operations of a semiring, ⊕ across sisters and ⊗ along a merge, and a daughter's weight is a sister with a null one level down. Not a choice; see the page.* The code reads a share as the frequency of an alternative; the definitions also allow a weight on a daughter. Under the second reading no artifact draws anything and k artifacts pin no ratio by frequency: the whole "carried by k" paragraph is void. Closes only by Izzy's answer (on the page as a question). Until then the count is conditional on the first reading.
+1. **Shares: frequencies or weights.** *Closed on 2026-10-08 by Izzy's 2 + n: the two readings are the two operations of a semiring, ⊕ across sisters and ⊗ along a merge, and a daughter's weight is a sister with a null one level down. Not a choice; see the page.* The code reads a share as the frequency of an alternative; the definitions also allow a weight on a daughter. Under the second reading no artifact draws anything and k artifacts pin no ratio by frequency: the whole "carried by k" paragraph is void. Closes only by Izzy's answer (on the page as a question). Until then the count is conditional on the first reading.
 
 2. **Cuts per node per artifact assumes one visit.** The count gives each node two binary cuts per artifact. In a grammar a node may be visited several times in one derivation, or not at all. The carried count is per visit, and the expected visits per draw is the π of the count, so the correction is to read "per artifact" as "per visit" and let π carry the rest. Closes by wording; the √(kπ) line already has it right.
 
@@ -22,7 +22,7 @@ The rule: no number reaches Izzy until two full rounds and two further replicati
 
 Verdict after round one: the count stands conditional on item 1, with item 3 corrected in the statement, items 4 and 6 declared as gaps, item 5 folded into the ambiguity term, and item 7 the first theorem to attempt. Nothing in it is a number yet.
 
-## T1, the first theorem of the toy (Claude, 2026-10-09; proved by the definition, held by a test)
+## T1, the first theorem of the toy (Claude, 2026-10-08; proved by the definition, held by a test)
 
 **Statement.** In the constructed source, the predictive distribution of the next form given a prefix depends only on the nodes visited by some derivation consistent with the prefix. A node visited by none has no effect, whatever its share, order or phase.
 
@@ -32,7 +32,7 @@ Verdict after round one: the count stands conditional on item 1, with item 3 cor
 
 **Test.** `TestTheoremOne` in `tests/test_schema.py`: an unvisited node's share, order and phase are moved and the prediction is unchanged to twelve places; a visited node's share is moved and the prediction moves.
 
-## T2, the weighted T1 (Claude, 2026-10-09; a sketch, held by a test on random tables)
+## T2, the weighted T1 (Claude, 2026-10-08; a sketch, held by a test on random tables)
 
 **Statement.** For a node visited by some consistent derivations, let m be the share of the consistent squared-amplitude mass that passes through it, s its share, δ a move of that share. The total variation of the predictive distribution is at most m · |δ| / min(s, 1 − s), to first order in δ. T1 is the case m = 0.
 
