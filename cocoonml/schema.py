@@ -192,3 +192,69 @@ def estimate(table_shape, artifacts):
                 counts[node][0][si] += 1
                 counts[node][1][oi] += 1
     return seen, counts
+
+
+# --- Interference: the distribution over strings as squared sums of amplitudes ------------------
+# The grammar is acyclic (a nonterminal expands only into higher ones or leaves), so the set of
+# derivations is finite and the whole distribution can be enumerated. A derivation's amplitude is
+# the product over its choices of the sister's amplitude (√share with its phase) and the order's
+# amplitude (√order, real). Strings with several derivations get the squared modulus of the SUM:
+# that is where the phases act, and only there.
+
+import cmath
+import math
+
+
+def _amplitude(table, choices):
+    amp = complex(1.0, 0.0)
+    for node_index, si, oi in choices:
+        node = table.nodes[node_index]
+        share = float(node.share) if si == 0 else 1.0 - float(node.share)
+        phase = 0.0 if si == 0 else 2.0 * math.pi * float(node.phase)
+        order = float(node.sisters[si].order)
+        order = order if oi == 0 else 1.0 - order
+        amp *= math.sqrt(share) * cmath.exp(1j * phase) * math.sqrt(order)
+    return amp
+
+
+def _all_derivations(table, symbol=0):
+    """Every (string, cuts, choices) the symbol can produce; finite because the grammar is acyclic."""
+    if not _is_nonterminal(symbol):
+        forms = () if symbol.form == 0 else (symbol.form,)
+        return [(forms, (symbol.cut,), ())]
+    node = table.nodes[symbol]
+    out = []
+    for si, expansion in enumerate(node.sisters):
+        left = _all_derivations(table, expansion.first)
+        right = _all_derivations(table, expansion.second)
+        for oi in (0, 1):
+            for fa, ca, da in left:
+                for fb, cb, db in right:
+                    a, b = ((fa, ca, da), (fb, cb, db)) if oi == 0 else ((fb, cb, db), (fa, ca, da))
+                    out.append((a[0] + b[0], a[1] + b[1], ((symbol, si, oi),) + a[2] + b[2]))
+    return out
+
+
+def distribution(table):
+    """The probability of each string under interference: |Σ amplitudes over its derivations|²,
+    normalised. With every phase zero and no string having two derivations this equals the
+    classical draw's distribution. Returns {string: probability}."""
+    sums = {}
+    for forms, _, choices in _all_derivations(table):
+        sums[forms] = sums.get(forms, 0j) + _amplitude(table, choices)
+    probs = {s: abs(a) ** 2 for s, a in sums.items()}
+    total = sum(probs.values())
+    return {s: p / total for s, p in probs.items()} if total > 0 else probs
+
+
+def draw_interfering(table, rng, _cache=None):
+    """One artifact drawn from the interfering distribution; the cuts are not returned, since under
+    interference a string is not one derivation and carries no single extension."""
+    dist = distribution(table) if _cache is None else _cache
+    r = rng.random()
+    acc = 0.0
+    for s, p in dist.items():
+        acc += p
+        if r < acc:
+            return s
+    return s
