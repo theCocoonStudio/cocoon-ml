@@ -237,8 +237,11 @@ def _all_derivations(table, symbol=0):
 
 def distribution(table):
     """The probability of each string under interference: |Σ amplitudes over its derivations|²,
-    normalised. With every phase zero and no string having two derivations this equals the
-    classical draw's distribution. Returns {string: probability}."""
+    renormalised over the strings. Where no string has two derivations this equals the classical
+    draw's distribution; where one does, the readings add as amplitudes, and a silent sister in
+    either order is already two readings of one string. The amplitudes are not a unitary evolution,
+    so total mass is not conserved under cancellation and the renormalisation is what makes this a
+    distribution: a first instance, marked. Returns {string: probability}."""
     sums = {}
     for forms, _, choices in _all_derivations(table):
         sums[forms] = sums.get(forms, 0j) + _amplitude(table, choices)
