@@ -416,3 +416,43 @@ class TestIdentificationError(unittest.TestCase):
         share, weight, _ = estimate_shares(table, [(1,)])[0]
         self.assertAlmostEqual(weight, 1.0)
         self.assertAlmostEqual(share, 0.5)
+
+
+class TestEntropyFloors(unittest.TestCase):
+    def _table(self):
+        table = generate(forms=3, cuts=2, nonterminals=2, resolution=8, seed=0)
+        root, a = table.nodes
+        for e in root.sisters:
+            e.first, e.second, e.order = Leaf(1, 0), 1, Fraction(1)
+        a.sisters[0].first, a.sisters[0].second, a.sisters[0].order = Leaf(2, 0), Leaf(0, 0), Fraction(1)
+        a.sisters[1].first, a.sisters[1].second, a.sisters[1].order = Leaf(3, 1), Leaf(0, 0), Fraction(1)
+        a.share = Fraction(1, 2)
+        return table
+
+    def test_the_form_floor_is_the_entropy_of_the_second_form_and_meaning_is_fixed_by_the_string(self):
+        import math
+        from cocoonml.schema import classical_joint, entropy_floor_form, entropy_floor_meaning
+
+        table = self._table()
+        joint = classical_joint(table)
+        self.assertAlmostEqual(sum(joint.values()), 1.0)
+        self.assertAlmostEqual(joint[((1, 2), 0)], 0.5)
+        self.assertAlmostEqual(joint[((1, 3), 1)], 0.5)
+        self.assertAlmostEqual(entropy_floor_form(table), math.log(2))
+        self.assertAlmostEqual(entropy_floor_meaning(table), 0.0)
+
+    def test_a_synonymous_form_moves_the_entropy_from_form_to_meaning(self):
+        import math
+        from cocoonml.schema import entropy_floor_form, entropy_floor_meaning
+
+        table = self._table()
+        table.nodes[1].sisters[1].first = Leaf(2, 1)  # the same form with another cut
+        self.assertAlmostEqual(entropy_floor_form(table), 0.0)
+        self.assertAlmostEqual(entropy_floor_meaning(table), math.log(2))
+
+    def test_the_form_floor_is_zero_when_the_table_is_deterministic(self):
+        from cocoonml.schema import entropy_floor_form
+
+        table = self._table()
+        table.nodes[1].share = Fraction(1)
+        self.assertAlmostEqual(entropy_floor_form(table), 0.0)
