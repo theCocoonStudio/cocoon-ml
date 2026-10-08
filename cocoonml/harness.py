@@ -33,19 +33,22 @@ def contexts(table, count, per_context, separator, length, rng, fill=False):
     return [pack([draw(table, rng)[0] for _ in range(per_context)], separator, length) for _ in range(count)]
 
 
-def filled(table, separator, length, rng, extension_base=None):
+def filled(table, separator, length, rng, extension_base=None, pairs=False):
     """One full context: artifacts drawn until the next whole one does not fit, packed with form
-    targets, or with meaning targets when `extension_base` is given. Returns (tokens, targets,
-    number of artifacts)."""
+    targets, or with meaning targets when `extension_base` is given, or as (string, extension)
+    pairs in the input when `pairs` is set too. Returns (tokens, targets, number of artifacts)."""
+    slot = 2 if pairs else 1  # a separator, and the extension token after it when pairs are in the input
     artifacts, used = [], 0
     while True:
         forms, cuts = draw(table, rng)
-        if used + len(forms) + 1 > length:
+        if used + len(forms) + slot > length:
             break
         artifacts.append((forms, cuts))
-        used += len(forms) + 1
+        used += len(forms) + slot
     if extension_base is None:
         tokens, targets = pack([forms for forms, _ in artifacts], separator, length)
+    elif pairs:
+        tokens, targets = pack_pairs(artifacts, separator, length, extension_base)
     else:
         tokens, targets = pack_meaning(artifacts, separator, length, extension_base)
     return tokens, targets, len(artifacts)
@@ -120,32 +123,59 @@ def pack_meaning(artifacts, separator, length, extension_base):
     return tokens, targets
 
 
-def contexts_meaning(table, count, per_context, separator, length, extension_base, rng, fill=False):
+def contexts_meaning(table, count, per_context, separator, length, extension_base, rng, fill=False, pairs=False):
     if fill:
-        return [filled(table, separator, length, rng, extension_base)[:2] for _ in range(count)]
+        return [filled(table, separator, length, rng, extension_base, pairs)[:2] for _ in range(count)]
+    if pairs:
+        return [pack_pairs([draw(table, rng) for _ in range(per_context)], separator, length, extension_base) for _ in range(count)]
     return [pack_meaning([draw(table, rng) for _ in range(per_context)], separator, length, extension_base) for _ in range(count)]
 
 
-def _ranked(table, count, per_context, separator, length, extension_base, rng, fill):
+# --- Pairs in the input (sweep 03 round one, item 2) --------------------------------------------
+# pack_meaning never puts an extension in the token sequence, so nothing in a window tells the model
+# what an earlier artifact meant and the meaning loss is a trained lookup. With pairs, the extension
+# token follows its separator as a token the model reads; the target at a separator is still the
+# extension, so the loss at the k-th separator is the extension of the k-th string given k − 1
+# (string, extension) pairs in context. The extension token's own target is whatever comes next.
+
+
+def pack_pairs(artifacts, separator, length, extension_base):
+    """Tokens: forms, separator, extension token, per artifact; targets: the next token, so the
+    extension at the separator. An artifact that does not fit whole with its pair is dropped."""
+    tokens = []
+    for forms, cuts in artifacts:
+        if len(tokens) + len(forms) + 2 > length:
+            break
+        tokens.extend(forms)
+        tokens.append(separator)
+        tokens.append(extension_base + sum(cuts))
+    while len(tokens) < length:
+        tokens.append(separator)
+    targets = tokens[1:] + [separator]
+    return tokens, targets
+
+
+def _ranked(table, count, per_context, separator, length, extension_base, rng, fill, pairs=False):
     """Contexts with the number of artifacts each holds, and the rank every context reaches:
     with `fill`, the curves are reported only at ranks present in every context, since a later
     rank is otherwise read on the contexts whose earlier artifacts were short (sweep 02 round one,
     item 4). Without fill every rank is reported."""
     if fill:
-        made = [filled(table, separator, length, rng, extension_base) for _ in range(count)]
+        made = [filled(table, separator, length, rng, extension_base, pairs) for _ in range(count)]
         return [(t, g) for t, g, _ in made], min(n for _, _, n in made)
     if extension_base is None:
         return contexts(table, count, per_context, separator, length, rng), None
-    return contexts_meaning(table, count, per_context, separator, length, extension_base, rng), None
+    return contexts_meaning(table, count, per_context, separator, length, extension_base, rng, pairs=pairs), None
 
 
-def meaning_loss_at_separators(model, table, count, per_context, separator, length, extension_base, rng, fill=False):
+def meaning_loss_at_separators(model, table, count, per_context, separator, length, extension_base, rng, fill=False, pairs=False):
     """Mean cross-entropy of the extension targets, in order of the separator's rank within the
-    context (first artifact, second, ...): the recovery curve of meaning against k."""
+    context (first artifact, second, ...): the recovery curve of meaning against k. With `pairs`
+    the earlier pairs are in the input and the curve is an in-context readout."""
     import math
 
     sums, counts = {}, {}
-    made, whole = _ranked(table, count, per_context, separator, length, extension_base, rng, fill)
+    made, whole = _ranked(table, count, per_context, separator, length, extension_base, rng, fill, pairs)
     for tokens, targets in made:
         logits, _ = model.forward(tokens)
         rank = 0
@@ -159,13 +189,15 @@ def meaning_loss_at_separators(model, table, count, per_context, separator, leng
     return [sums[r] / counts[r] for r in sorted(sums) if whole is None or r < whole]
 
 
-def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=False):
+def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=False, extension_base=None, pairs=False):
     """Mean cross-entropy of next-FORM prediction grouped by artifact rank within the context,
-    padding and separator targets excluded: the recovery curve of form against k."""
+    padding and separator targets excluded: the recovery curve of form against k. With `pairs`
+    (and `extension_base`), contexts carry the pairs and the extension tokens are not form
+    positions: the first form of an artifact is never a form target, in either layout."""
     import math
 
     sums, counts = {}, {}
-    made, whole = _ranked(table, count, per_context, separator, model.length, None, rng, fill)
+    made, whole = _ranked(table, count, per_context, separator, model.length, extension_base if pairs else None, rng, fill, pairs)
     for tokens, targets in made:
         logits, _ = model.forward(tokens)
         rank = 0
@@ -173,6 +205,8 @@ def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=Fal
             if tok == separator:
                 rank += 1
                 continue
+            if extension_base is not None and tok >= extension_base:
+                continue  # the extension token predicts the next artifact's first form, not a form inside one
             if t == separator:
                 continue  # predicting the end of an artifact is not predicting a form
             m = max(x.value for x in lg)

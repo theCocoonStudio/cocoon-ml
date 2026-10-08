@@ -116,3 +116,44 @@ class TestFilledContexts(unittest.TestCase):
         model = Attention(vocab=14, width=3, length=8, seed=1)
         curve = meaning_loss_at_separators(model, table, count=3, per_context=1, separator=9, length=8, extension_base=10, rng=rng, fill=True)
         self.assertEqual(len(curve), 4)
+
+
+class TestPairsInTheInput(unittest.TestCase):
+    """Sweep 03, round one, item 2: the extension token follows its separator as a token the
+    model reads; the target at the separator is still the extension."""
+
+    def test_pack_pairs_puts_the_extension_after_the_separator_and_targets_it_at_the_separator(self):
+        from cocoonml.harness import pack_pairs
+
+        tokens, targets = pack_pairs([((1, 2), (0, 1)), ((3,), (1,))], separator=9, length=8, extension_base=10)
+        self.assertEqual(tokens, [1, 2, 9, 11, 3, 9, 11, 9])
+        self.assertEqual(targets, [2, 9, 11, 3, 9, 11, 9, 9])
+
+    def test_pack_pairs_drops_an_artifact_whose_pair_does_not_fit(self):
+        from cocoonml.harness import pack_pairs
+
+        tokens, _ = pack_pairs([((1, 2), (0, 1)), ((3, 4), (1, 1))], separator=9, length=7, extension_base=10)
+        self.assertEqual(tokens, [1, 2, 9, 11, 9, 9, 9])
+
+    def test_filled_with_pairs_counts_the_extension_slot_and_the_curves_read_the_separators(self):
+        import random
+        from cocoonml.attention import Attention
+        from cocoonml.harness import filled, form_loss_by_rank, meaning_loss_at_separators
+        from cocoonml.schema import Leaf
+
+        table = generate(forms=2, cuts=2, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 1), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        rng = random.Random(0)
+        tokens, targets, n = filled(table, 9, 10, rng, extension_base=10, pairs=True)
+        self.assertEqual(n, 3)  # a form, a separator and an extension token each: nine of ten slots
+        self.assertEqual(tokens[-1], 9)  # the tenth slot is padding
+        self.assertIn(tokens[-2], (10, 11))
+        model = Attention(vocab=16, width=3, length=10, seed=1)
+        meaning = meaning_loss_at_separators(model, table, 3, 0, 9, 10, 10, rng, fill=True, pairs=True)
+        self.assertEqual(len(meaning), 3)
+        form = form_loss_by_rank(model, table, 3, 0, 9, rng, fill=True, extension_base=10, pairs=True)
+        self.assertEqual(form, [])  # one-form artifacts have no form inside them to predict
