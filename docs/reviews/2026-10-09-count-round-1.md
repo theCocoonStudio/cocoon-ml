@@ -31,3 +31,13 @@ Verdict after round one: the count stands conditional on item 1, with item 3 cor
 **What it gives the count.** Gap one, identification against prediction, has its first half: the residual that bounds prediction is at most the residual over the consistent-derivation set, never the whole tree. What it does not give: how much a node visited by some consistent derivations and not others matters, which is the weighted version and is the next theorem.
 
 **Test.** `TestTheoremOne` in `tests/test_schema.py`: an unvisited node's share, order and phase are moved and the prediction is unchanged to twelve places; a visited node's share is moved and the prediction moves.
+
+## T2, the weighted T1 (Claude, 2026-10-09; a sketch, held by a test on random tables)
+
+**Statement.** For a node visited by some consistent derivations, let m be the share of the consistent squared-amplitude mass that passes through it, s its share, δ a move of that share. The total variation of the predictive distribution is at most m · |δ| / min(s, 1 − s), to first order in δ. T1 is the case m = 0.
+
+**Sketch.** A derivation through the node carries a factor √s or √(1 − s) per visit; moving s by δ changes that factor by a relative amount of about |δ| / (2 min(s, 1 − s)) per visit. Derivations not through the node are unchanged. The predictive distribution is a ratio of sums of squared sums of amplitudes; a relative change ε on a fraction m of the mass moves the ratio by at most about 2mε in total variation. Substituting gives the bound. Second-order terms and multiple visits are not controlled; the test uses a small δ, keeps s away from the clip, and allows a tolerance.
+
+**What it gives the count.** Gap one closes in this form: the residual that bounds prediction is the residual over nodes weighted by their consistent mass, which lies between one path and the tree. A node the context never visits costs nothing; a node every consistent derivation visits costs its full unpinned resolution; the rest in proportion. The path-restricted residual of the count is replaced by the mass-weighted one.
+
+**Test.** `TestTheoremTwo`: forty random tables, every node away from the clip, δ = 1/64: the measured total variation stays under the bound (tolerance 0.02 for the second order), and nodes of mass zero move nothing.

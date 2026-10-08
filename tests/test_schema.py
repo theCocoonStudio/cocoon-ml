@@ -307,3 +307,34 @@ class TestNEff(unittest.TestCase):
         artifacts = [(1,)] * 16
         _, grades = n_eff(table, artifacts, phase_resolution=4)
         self.assertEqual(grades[0][1], 1.0)
+
+
+class TestTheoremTwo(unittest.TestCase):
+    """T2 (sketch): a node's effect on the prediction is bounded by its consistent mass:
+    total variation ≤ m · |δ| / min(s, 1 − s), to first order. Checked on random tables with a
+    small δ and a tolerance for the second order."""
+
+    def test_sensitivity_is_bounded_by_consistent_mass_on_random_tables(self):
+        from cocoonml.schema import consistent_mass, predictive, sensitivity
+
+        rng = random.Random(0)
+        checked = 0
+        for seed in range(40):
+            table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=seed)
+            string = draw(table, rng)[0]
+            if not string:
+                continue
+            prefix = string[:1]
+            for node_index, node in enumerate(table.nodes):
+                s = float(node.share)
+                if s <= 0.125 or s >= 0.875:
+                    continue  # keep away from the clip, where first order does not hold
+                delta = Fraction(1, 64)
+                m = consistent_mass(table, prefix, node_index)
+                tv = sensitivity(table, prefix, node_index, delta)
+                bound = m * float(delta) / min(s, 1 - s)
+                self.assertLessEqual(tv, bound + 0.02, f"seed {seed} node {node_index}: tv {tv} > bound {bound}")
+                if m == 0.0:
+                    self.assertAlmostEqual(tv, 0.0, places=12)  # T1
+                checked += 1
+        self.assertGreater(checked, 20)
