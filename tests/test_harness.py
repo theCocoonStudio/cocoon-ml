@@ -78,3 +78,41 @@ class TestRoundOneFixes(unittest.TestCase):
             eight = step(eight, rng, Fraction(1, 8), Fraction(1, 2))
         self.assertGreaterEqual(delta(table, eight), delta(table, one) * 0.9)
         self.assertGreater(delta_magnitude(table, eight), delta_magnitude(table, one))
+
+
+class TestFilledContexts(unittest.TestCase):
+    """Sweep 02, round one, items 3 and 4: contexts that always fill, curves only where every
+    context reaches."""
+
+    def _one_form_table(self):
+        import random
+        from cocoonml.schema import Leaf
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        return table, random.Random(0)
+
+    def test_a_filled_context_is_full_and_counts_its_artifacts(self):
+        from cocoonml.harness import contexts, filled
+
+        table, rng = self._one_form_table()
+        tokens, targets, n = filled(table, 9, 8, rng)
+        self.assertEqual(n, 4)  # one form and a separator each
+        self.assertEqual(tokens[-1], 9)
+        self.assertNotEqual(tokens[-2], 9)
+        for tokens, _ in contexts(table, 5, 1, 9, 8, rng, fill=True):
+            self.assertNotEqual(tokens[-2], 9)
+
+    def test_curves_with_fill_stop_at_the_rank_every_context_reaches(self):
+        import random
+        from cocoonml.attention import Attention
+        from cocoonml.harness import meaning_loss_at_separators
+
+        table, rng = self._one_form_table()
+        model = Attention(vocab=14, width=3, length=8, seed=1)
+        curve = meaning_loss_at_separators(model, table, count=3, per_context=1, separator=9, length=8, extension_base=10, rng=rng, fill=True)
+        self.assertEqual(len(curve), 4)
