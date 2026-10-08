@@ -58,3 +58,40 @@ class TestAttention(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWithinArtifactPosition(unittest.TestCase):
+    def test_offsets_reset_at_the_separator(self):
+        from cocoonml.attention import Attention
+
+        model = Attention(vocab=6, width=2, length=8, seed=0, separator=5)
+        self.assertEqual(model.offsets([1, 2, 5, 3, 5, 5, 4, 1]), [0, 1, 0, 1, 0, 0, 1, 2])
+
+    def test_the_other_weights_are_unchanged_by_adding_the_within_embedding(self):
+        from cocoonml.attention import Attention
+
+        plain = Attention(vocab=6, width=2, length=4, seed=3)
+        within = Attention(vocab=6, width=2, length=4, seed=3, separator=5)
+        self.assertEqual([p.value for p in plain.parameters()], [p.value for p in within.parameters()][: sum(1 for _ in plain.parameters())])
+
+    def test_within_gradient_matches_finite_differences(self):
+        from cocoonml.attention import Attention
+
+        model = Attention(vocab=6, width=3, length=6, seed=0, separator=5)
+        tokens, targets = [1, 2, 5, 3, 4, 5], [2, 5, 3, 4, 5, 5]
+        for p in model.parameters():
+            p._derivative = 0.0
+        model.loss(tokens, targets).backward()
+        h = 1e-5
+        checked = 0
+        for row in model.within[:3]:
+            for p in row:
+                analytic, saved = p._derivative, p.value
+                p.value = saved + h
+                up = model.loss(tokens, targets).value
+                p.value = saved - h
+                down = model.loss(tokens, targets).value
+                p.value = saved
+                self.assertAlmostEqual(analytic, (up - down) / (2 * h), places=5)
+                checked += 1
+        self.assertEqual(checked, 9)
