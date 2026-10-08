@@ -491,3 +491,59 @@ def identification_error(table, artifacts):
             errors.append(e)
     mean = sum(errors) / len(errors) if errors else None
     return mean, len(errors) / len(table.nodes), per_node
+
+
+# --- The exact entropy floors -------------------------------------------------------------------
+# The harness samples the table classically (draw), so the irreducible loss of its targets is a
+# conditional entropy under the classical joint over (string, extension), enumerable because the
+# grammar is acyclic. Two floors for the two readouts: FORM, the entropy of the next form given the
+# forms before it in the artifact, per form target as form_loss_by_rank counts them (the first form
+# and the end are not form targets); MEANING, the entropy of the extension given the whole string,
+# one target per artifact. A loss minus its floor is the excess, comparable across tables of
+# different entropy (sweep 02 round one, item 5); the irreducible term of the decomposition in
+# 2401.15530, exact here rather than estimated.
+
+
+def classical_joint(table):
+    """{(string, extension): probability} under the classical draw: shares and orders as
+    probabilities, phases absent."""
+    joint = {}
+    for forms, cuts, choices in _all_derivations(table):
+        p = 1.0
+        for node_index, si, oi in choices:
+            node = table.nodes[node_index]
+            p *= float(node.share) if si == 0 else 1.0 - float(node.share)
+            o = float(node.sisters[si].order)
+            p *= o if oi == 0 else 1.0 - o
+        key = (forms, sum(cuts))
+        joint[key] = joint.get(key, 0.0) + p
+    return joint
+
+
+def entropy_floor_form(table):
+    """Expected -log P(next form | the forms before it), per form target, positions two to the
+    end of the string; the floor of form_loss_by_rank. Zero when the first form fixes the string."""
+    strings = {}
+    for (forms, _), p in classical_joint(table).items():
+        if p > 0:  # a derivation through a zero share or order is not a string the world produces
+            strings[forms] = strings.get(forms, 0.0) + p
+    prefix = {}
+    for forms, p in strings.items():
+        for i in range(len(forms) + 1):
+            prefix[forms[:i]] = prefix.get(forms[:i], 0.0) + p
+    total = targets = 0.0
+    for forms, p in strings.items():
+        for i in range(1, len(forms)):
+            total += p * -math.log(prefix[forms[: i + 1]] / prefix[forms[:i]])
+            targets += p
+    return total / targets if targets > 0 else 0.0
+
+
+def entropy_floor_meaning(table):
+    """Expected entropy of the extension given the whole string, one target per artifact; the
+    floor of meaning_loss_at_separators. Zero when every string carries one extension."""
+    joint = {k: p for k, p in classical_joint(table).items() if p > 0}
+    strings = {}
+    for (forms, _), p in joint.items():
+        strings[forms] = strings.get(forms, 0.0) + p
+    return sum(p * -math.log(p / strings[forms]) for (forms, _), p in joint.items())
