@@ -221,27 +221,34 @@ def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=Fal
 # last `window` steps improves on the previous window's by less than `tolerance` of it, or `cap`.
 
 
-def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=2000, evaluate=None):
+def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=2000, evaluate=None, patience=1, minimum=0):
     """Train step by step on make_batch() until the plateau rule holds or the cap; returns
     (losses, evaluations), so the caller can report whether the cap or the rule ended training and
-    the last two readings. With `evaluate`, a callable returning the loss on a fixed held-out set,
-    the rule compares its last two readings, taken every `window` steps (sweep 04 round one,
-    item 3: on the batch loss the rule stops at the batch noise); without it, the means of the last
-    two windows of batch losses."""
-    losses, evaluations = [], []
+    the last readings. With `evaluate`, a callable returning the loss on a fixed held-out set, the
+    rule reads it every `window` steps (sweep 04 round one, item 3: on the batch loss the rule stops
+    at the batch noise); without it, the means of the last two windows of batch losses. The rule
+    holds when `patience` consecutive readings each improve on the one before by less than
+    `tolerance` of it, and is not consulted before `minimum` steps (sweep 05's first cells: one
+    non-improving reading after a hundred steps ended training with the loss far from settled)."""
+    losses, evaluations, stale = [], [], 0
     while len(losses) < cap:
         losses.append(model.train_step(make_batch(), lr))
         if len(losses) % window:
             continue
         if evaluate is not None:
             evaluations.append(evaluate())
-            if len(evaluations) >= 2 and evaluations[-1] >= evaluations[-2] * (1 - tolerance):
-                break
-        elif len(losses) >= 2 * window:
+            if len(evaluations) < 2:
+                continue
+            improved = evaluations[-1] < evaluations[-2] * (1 - tolerance)
+        else:
+            if len(losses) < 2 * window:
+                continue
             last = sum(losses[-window:]) / window
             before = sum(losses[-2 * window : -window]) / window
-            if last >= before * (1 - tolerance):
-                break
+            improved = last < before * (1 - tolerance)
+        stale = 0 if improved else stale + 1
+        if stale >= patience and len(losses) >= minimum:
+            break
     return losses, evaluations
 
 
