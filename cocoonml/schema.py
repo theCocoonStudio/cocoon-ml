@@ -261,3 +261,33 @@ def draw_interfering(table, rng, _cache=None):
         if r < acc:
             return s
     return s
+
+
+# --- The predictive distribution, and the first theorem of the toy ------------------------------
+# predictive(table, prefix) is the distribution of the next form given a prefix, under interference:
+# the squared modulus of the summed amplitudes of derivations consistent with prefix + next, over
+# the same for the prefix. T1: a node visited by no derivation consistent with the prefix has no
+# effect on this distribution, whatever its share, order or phase. The proof is the definition:
+# such a node contributes to no term of either sum. tests/test_schema.py checks it numerically.
+
+
+def predictive(table, prefix):
+    """{next form or None (end): probability} given the prefix, under interference."""
+    sums = {}
+    for forms, _, choices in _all_derivations(table):
+        if forms[: len(prefix)] != tuple(prefix):
+            continue
+        nxt = forms[len(prefix)] if len(forms) > len(prefix) else None
+        sums[nxt] = sums.get(nxt, 0j) + _amplitude(table, choices)
+    probs = {k: abs(a) ** 2 for k, a in sums.items()}
+    total = sum(probs.values())
+    return {k: p / total for k, p in probs.items()} if total > 0 else probs
+
+
+def visited_by_consistent_derivations(table, prefix):
+    """The set of nodes visited by at least one derivation consistent with the prefix."""
+    nodes = set()
+    for forms, _, choices in _all_derivations(table):
+        if forms[: len(prefix)] == tuple(prefix):
+            nodes.update(node for node, _, _ in choices)
+    return nodes
