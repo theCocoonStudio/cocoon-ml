@@ -341,7 +341,7 @@ def cost_of(table, string):
 #   phase grade at a node   = min(1, √ambiguous_visits / φ) (a phase shows only through strings
 #                                                            with more than one derivation)
 # n_eff for the window is the sum of grades over nodes, over 2 · nodes: a ratio of counts.
-# Operational reading (Claude, 2026-10-09), marked; Izzy strikes.
+# Operational reading (Claude, 2026-10-08), marked; Izzy strikes.
 
 
 def n_eff(table, artifacts, phase_resolution):
