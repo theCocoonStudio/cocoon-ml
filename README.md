@@ -25,3 +25,5 @@ No install, no dependencies. Python 3.11 or later.
 3. `docs/concepts/03-in-context-learning.md` and `docs/reviews/` (the dialectical rounds against the count and the sweeps): the first unsolved problem, its objects, the drift test, both predictions lodged before any run, the count
    - `cocoonml/schema.py`: the constructed drift source: a table, its draws, its steps, the delta, the estimate off artifacts
    - `cocoonml/attention.py`: one layer of causal softmax attention on the scalar autograd, with a probe
+   - `cocoonml/harness.py`: the apparatus end to end: contexts packed from a table (form or meaning targets, filling or not), training, the recovery curves by artifact rank, the drifted table
+   - `cocoonml/probe.py`: a linear probe in closed form with r-squared, the ruler for reading a variable off the attended vectors
