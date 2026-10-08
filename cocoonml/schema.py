@@ -397,3 +397,21 @@ def sensitivity(table, prefix, node_index, delta):
     after = predictive(moved, prefix)
     keys = set(before) | set(after)
     return 0.5 * sum(abs(before.get(k, 0.0) - after.get(k, 0.0)) for k in keys)
+
+
+# --- The delta as a magnitude, not a flag ------------------------------------------------------
+# delta() counts whether a resolved ratio moved, which saturates after one step: every node moves
+# a little, so nearly every entry flags. delta_magnitude is the mean absolute move of shares,
+# orders and phases, in units of the grain: a ratio of counts that keeps growing with drift.
+
+
+def delta_magnitude(a, b):
+    """Mean absolute movement of shares, orders and phases between two tables, as a float."""
+    moved = total = 0.0
+    for na, nb in zip(a.nodes, b.nodes):
+        moved += abs(float(na.share) - float(nb.share))
+        d = abs(float(na.phase) - float(nb.phase))
+        moved += min(d, 1.0 - d)
+        moved += sum(abs(float(ea.order) - float(eb.order)) for ea, eb in zip(na.sisters, nb.sisters))
+        total += 2 + len(na.sisters)
+    return moved / total if total else 0.0
