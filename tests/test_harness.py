@@ -185,6 +185,18 @@ class TestPlateau(unittest.TestCase):
         self.assertEqual(evaluations, [2.0, 1.5, 1.2, 1.19])  # stops when a reading improves by under one percent
         self.assertEqual(len(losses), 40)
 
+    def test_patience_and_minimum_hold_the_rule_back(self):
+        from cocoonml.harness import train_until_plateau
+
+        flat = self.Stub(lambda n: 1.0)
+        self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500, patience=3)[0]), 40)
+        flat = self.Stub(lambda n: 1.0)
+        self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500, minimum=75)[0]), 80)
+        readings = iter([2.0, 1.99, 1.0, 0.999, 0.998, 0.5])
+        flat = self.Stub(lambda n: 1.0)
+        _, evaluations = train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500, evaluate=lambda: next(readings), patience=2)
+        self.assertEqual(evaluations, [2.0, 1.99, 1.0, 0.999, 0.998])  # one stale reading is forgiven; two in a row are not
+
 
 class TestScrambledPairs(unittest.TestCase):
     def test_scrambling_permutes_the_extension_tokens_and_nothing_else(self):
