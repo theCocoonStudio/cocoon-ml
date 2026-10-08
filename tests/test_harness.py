@@ -175,3 +175,16 @@ class TestPlateau(unittest.TestCase):
         self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500)), 20)
         halving = self.Stub(lambda n: 2.0 ** -n)
         self.assertEqual(len(train_until_plateau(halving, lambda: None, 0.1, window=10, cap=60)), 60)
+
+
+class TestScrambledPairs(unittest.TestCase):
+    def test_scrambling_permutes_the_extension_tokens_and_nothing_else(self):
+        import random
+        from cocoonml.harness import scramble_extensions
+
+        tokens = [1, 2, 9, 11, 3, 9, 12, 2, 1, 9, 10, 9]
+        out = scramble_extensions(tokens, random.Random(3), 10)
+        self.assertEqual([t for t in out if t < 10], [t for t in tokens if t < 10])
+        self.assertEqual([i for i, t in enumerate(out) if t >= 10], [3, 6, 10])
+        self.assertEqual(sorted(t for t in out if t >= 10), [10, 11, 12])
+        self.assertEqual(tokens, [1, 2, 9, 11, 3, 9, 12, 2, 1, 9, 10, 9])  # the input is not mutated
