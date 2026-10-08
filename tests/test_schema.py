@@ -121,3 +121,42 @@ class TestRulerValidity(unittest.TestCase):
         ds = derivations(table, (1, 1))
         # both sisters produce (1, 1) in both orders: four derivations, none distinguishable by the string
         self.assertEqual(len(ds), 4)
+
+
+class TestInterference(unittest.TestCase):
+    def _two_readings(self):
+        from cocoonml.schema import distribution
+
+        table = generate(forms=1, cuts=1, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(0, 0), Leaf(1, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        node.share = Fraction(1, 2)
+        return table, distribution
+
+    def test_with_zero_phase_two_readings_of_one_string_add_constructively(self):
+        table, distribution = self._two_readings()
+        table.nodes[0].phase = Fraction(0)
+        self.assertAlmostEqual(distribution(table)[(1,)], 1.0)
+
+    def test_with_half_a_turn_the_two_readings_cancel(self):
+        table, distribution = self._two_readings()
+        table.nodes[0].phase = Fraction(1, 2)
+        dist = distribution(table)
+        # the only string is (1,), and its amplitude cancels to zero: the distribution is empty mass
+        self.assertAlmostEqual(dist.get((1,), 0.0), 0.0, places=9)
+
+    def test_without_ambiguity_interference_equals_the_classical_distribution(self):
+        from cocoonml.schema import distribution
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        node.share = Fraction(1, 4)
+        node.phase = Fraction(1, 3)  # a phase with nothing to interfere with
+        dist = distribution(table)
+        self.assertAlmostEqual(dist[(1,)], 0.25)
+        self.assertAlmostEqual(dist[(2,)], 0.75)
