@@ -157,3 +157,21 @@ class TestPairsInTheInput(unittest.TestCase):
         self.assertEqual(len(meaning), 3)
         form = form_loss_by_rank(model, table, 3, 0, 9, rng, fill=True, extension_base=10, pairs=True)
         self.assertEqual(form, [])  # one-form artifacts have no form inside them to predict
+
+
+class TestPlateau(unittest.TestCase):
+    class Stub:
+        def __init__(self, sequence):
+            self.sequence, self.calls = sequence, 0
+
+        def train_step(self, batch, lr):
+            self.calls += 1
+            return self.sequence(self.calls)
+
+    def test_a_flat_loss_stops_after_two_windows_and_a_falling_one_runs_to_the_cap(self):
+        from cocoonml.harness import train_until_plateau
+
+        flat = self.Stub(lambda n: 1.0)
+        self.assertEqual(len(train_until_plateau(flat, lambda: None, 0.1, window=10, cap=500)), 20)
+        halving = self.Stub(lambda n: 2.0 ** -n)
+        self.assertEqual(len(train_until_plateau(halving, lambda: None, 0.1, window=10, cap=60)), 60)
