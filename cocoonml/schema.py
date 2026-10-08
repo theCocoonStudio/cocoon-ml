@@ -9,8 +9,9 @@ Operational reading of docs/concepts/03-in-context-learning.md (Claude's, for Iz
 - A leaf is a form on a cut. Form 0 is the empty form (null). Cuts are integers; the
   extension of an artifact is the multiset of cuts it carries, composed as a sum.
 - An artifact is one draw of the whole tree, pronounced: the string of non-empty forms.
-- A step moves share between sisters by small amounts whose total is bounded, with a
-  lean toward the sister that contains a null, and moves phases by small amounts.
+- A step moves shares and order ratios by one grain at most per node, their expected total
+  bounded, with a lean toward the sister that contains a null; the ends reflect, and with a
+  centre and a radius the move is pulled back toward the centre (mean-reverting); phases jitter.
 - The delta between two tables is a ratio of counts: resolved shares that moved, over
   all resolved shares, per node, at a resolution.
 
@@ -145,25 +146,48 @@ def derivations(table, string, start=0, _memo=None):
     return results
 
 
-def step(table, rng, bound, lean):
-    """One move of the index: a superposition of small share movements, their total bounded by
-    `bound`, leaning by `lean` toward the sister that contains a null; phases move by small
-    amounts. Shares that reach zero stay there (remove). Returns a new table."""
+def step(table, rng, bound, lean, centre=None, radius=None):
+    """One move of the index: a superposition of small moves, one grain per node at most, their
+    expected total bounded by `bound` (the bound spread over the nodes, as a probability of moving
+    one grain). A share that moves takes one grain in a direction leaned by `lean` toward the sister
+    that contains a null; an order ratio takes one grain in a direction of its own. A move past an
+    end reflects, so no value is absorbing: a share at zero is a removed sister, and it returns.
+    With a `centre` table and a `radius`, a move is pulled toward the centre's value with
+    probability displacement over radius, a restoring pull proportional to the displacement: the
+    mean-reverting form the page derives, which keeps the walk within about the radius of its
+    centre while the lean shifts where it sits. Phases jitter by a quarter grain and wrap.
+    Returns a new table."""
     new = table.copy()
     n = len(new.nodes)
-    per_node = Fraction(bound, n)
-    for node in new.nodes:
+    grain = Fraction(1, table.resolution)
+    p_move = min(Fraction(1), Fraction(bound) / (n * grain))
+
+    def move(value, direction, centre_value):
+        if centre_value is not None and radius:
+            displacement = value - centre_value
+            if displacement != 0 and rng.random() < min(1, abs(displacement) / radius):
+                direction = -1 if displacement > 0 else 1
+        moved = value + direction * grain
+        if moved > 1:
+            moved = 2 - moved
+        if moved < 0:
+            moved = -moved
+        return _quantise(moved, table.resolution)
+
+    for i, node in enumerate(new.nodes):
         toward_null = [any(_is_nonterminal(s) is False and s.form == 0 for s in (e.first, e.second)) for e in node.sisters]
-        direction = Fraction(rng.choice((-1, 1)), 1)
+        direction = rng.choice((-1, 1))
         if toward_null[0] and not toward_null[1]:
-            direction = direction if rng.random() >= lean else Fraction(1)
+            direction = direction if rng.random() >= lean else 1
         elif toward_null[1] and not toward_null[0]:
-            direction = direction if rng.random() >= lean else Fraction(-1)
-        delta = direction * per_node * Fraction(rng.randrange(0, table.resolution + 1), table.resolution)
-        node.share = _quantise(min(Fraction(1), max(Fraction(0), node.share + delta)), table.resolution)
+            direction = direction if rng.random() >= lean else -1
+        c = centre.nodes[i] if centre is not None else None
+        if rng.random() < p_move:
+            node.share = move(node.share, direction, c.share if c is not None else None)
         node.phase = (node.phase + Fraction(rng.randrange(-1, 2), 4 * table.resolution)) % 1
-        for e in node.sisters:
-            e.order = _quantise(min(Fraction(1), max(Fraction(0), e.order + direction * per_node / 2)), table.resolution)
+        for e, ce in zip(node.sisters, c.sisters if c is not None else (None, None)):
+            if rng.random() < p_move:
+                e.order = move(e.order, rng.choice((-1, 1)), ce.order if ce is not None else None)
     return new
 
 

@@ -49,8 +49,39 @@ class TestSchema(unittest.TestCase):
         moved = step(self.table, rng, bound=Fraction(1, 2), lean=Fraction(1, 2))
         total = sum(abs(a.share - b.share) for a, b in zip(self.table.nodes, moved.nodes))
         self.assertLessEqual(total, Fraction(1, 2))
+        for a, b in zip(self.table.nodes, moved.nodes):
+            self.assertLessEqual(abs(a.share - b.share), Fraction(1, 8))  # one grain per node at most
         self.assertGreaterEqual(delta(self.table, moved), 0)
         self.assertEqual(delta(self.table, self.table), 0)
+
+    def test_the_index_never_freezes_and_stays_within_the_radius_of_its_centre(self):
+        """Sweep 02, round one, item 1: under the clip and the lean the shares reached an end and
+        stayed; with reflection and the pull the walk keeps moving and stays near the origin."""
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=1)
+        rng = random.Random(0)
+        moved, seen, last = table, set(), []
+        for i in range(300):
+            moved = step(moved, rng, bound=Fraction(3, 8), lean=Fraction(3, 4), centre=table, radius=Fraction(1, 4))
+            for a, b in zip(table.nodes, moved.nodes):
+                self.assertLessEqual(abs(a.share - b.share), Fraction(1, 4) + Fraction(1, 8))
+            shares = tuple(n.share for n in moved.nodes)
+            seen.add(shares)
+            if i >= 250:
+                last.append(shares)
+        self.assertGreater(len(seen), 8)
+        self.assertGreater(len(set(last)), 1)
+
+    def test_a_removed_sister_returns(self):
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=5)
+        centre = table.copy()
+        table.nodes[0].share = Fraction(0)
+        moved = step(table, random.Random(0), bound=Fraction(1), lean=Fraction(0), centre=centre, radius=Fraction(1, 4))
+        self.assertGreater(moved.nodes[0].share, 0)
+        at_end = table.copy()
+        at_end.nodes[0].share = Fraction(1)
+        for _ in range(20):
+            at_end = step(at_end, random.Random(1), bound=Fraction(1), lean=Fraction(1))
+        self.assertLess(at_end.nodes[0].share, 1)  # the end reflects even under a full lean
 
     def test_the_lean_moves_share_toward_the_null_sister(self):
         table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=5)
