@@ -616,3 +616,27 @@ def incidence_delta(a, b):
                 total += 1
                 moved += int(la.cut != lb.cut)
     return Fraction(moved, total) if total else Fraction(0)
+
+
+# --- The identification excess (sweep 04 round one, item 4) --------------------------------------
+# A share at an end of its range is identified from a handful of draws with no error, so the
+# identification error is lower on low-entropy tables for no reason of the window's. The excess is
+# the error less the sampling floor at that node: the standard error of a frequency at the true
+# share and the visit count, √(s(1 − s)/n). Zero excess means the window pinned the share as well as
+# n draws can; the excess, not the error, compares across tables.
+
+
+def identification_excess(table, artifacts):
+    """(mean of (error − floor) over the identified nodes, or None; per node (excess or None))."""
+    estimates = estimate_shares(table, artifacts)
+    per_node, values = [], []
+    for node, (share, weight, _) in zip(table.nodes, estimates):
+        if share is None:
+            per_node.append(None)
+            continue
+        s = float(node.share)
+        floor = math.sqrt(s * (1.0 - s) / weight) if weight > 0 else 0.0
+        excess = abs(share - s) - floor
+        per_node.append(excess)
+        values.append(excess)
+    return (sum(values) / len(values) if values else None), per_node

@@ -549,3 +549,23 @@ class TestRemap(unittest.TestCase):
         one_cut.nodes[1].sisters[1].first = Leaf(3, 0)
         with self.assertRaises(ValueError):
             remap(one_cut, random.Random(0), 1)
+
+
+class TestIdentificationExcess(unittest.TestCase):
+    def test_the_excess_is_zero_at_the_sampling_floor_and_at_a_share_that_is_an_end(self):
+        from cocoonml.schema import identification_excess
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        node.share = Fraction(1, 2)
+        window = [(1,), (1,), (1,), (2,)]  # estimate 3/4, error 1/4, floor √(1/4 / 4) = 1/4
+        mean, per_node = identification_excess(table, window)
+        self.assertAlmostEqual(mean, 0.0)
+        self.assertAlmostEqual(per_node[0], 0.0)
+        node.share = Fraction(1)
+        self.assertAlmostEqual(identification_excess(table, [(1,)] * 4)[0], 0.0)
+        self.assertEqual(identification_excess(table, [])[0], None)
