@@ -83,12 +83,13 @@ def pack_meaning(artifacts, separator, length, extension_base):
     extension_base + sum of cuts. Elsewhere the target is the next form."""
     tokens, targets = [], []
     for forms, cuts in artifacts:
+        if len(tokens) + len(forms) + 1 > length:
+            break  # an artifact that does not fit whole is dropped: a cut artifact has no extension
         for i, f in enumerate(forms):
             tokens.append(f)
             targets.append(forms[i + 1] if i + 1 < len(forms) else separator)
         tokens.append(separator)
         targets.append(extension_base + sum(cuts))
-    tokens, targets = tokens[:length], targets[:length]
     while len(tokens) < length:
         tokens.append(separator)
         targets.append(separator)
@@ -116,3 +117,25 @@ def meaning_loss_at_separators(model, table, count, per_context, separator, leng
                 counts[rank] = counts.get(rank, 0) + 1
                 rank += 1
     return [sums[r] / counts[r] for r in sorted(sums)]
+
+
+def form_loss_by_rank(model, table, count, per_context, separator, rng):
+    """Mean cross-entropy of next-FORM prediction grouped by artifact rank within the context,
+    padding and separator targets excluded: the recovery curve of form against k."""
+    import math
+
+    sums, counts = {}, {}
+    for tokens, targets in contexts(table, count, per_context, separator, model.length, rng):
+        logits, _ = model.forward(tokens)
+        rank = 0
+        for i, (tok, lg, t) in enumerate(zip(tokens, logits, targets)):
+            if tok == separator:
+                rank += 1
+                continue
+            if t == separator:
+                continue  # predicting the end of an artifact is not predicting a form
+            m = max(x.value for x in lg)
+            total = sum(math.exp(x.value - m) for x in lg)
+            sums[rank] = sums.get(rank, 0.0) + (-(lg[t].value - m) + math.log(total))
+            counts[rank] = counts.get(rank, 0) + 1
+    return [sums[r] / counts[r] for r in sorted(sums) if counts[r] > 0]

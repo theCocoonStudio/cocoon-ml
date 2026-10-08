@@ -46,3 +46,35 @@ class TestMeaning(unittest.TestCase):
         curve = meaning_loss_at_separators(model, table, count=3, per_context=2, separator=5, length=8, extension_base=10, rng=random.Random(0))
         self.assertGreaterEqual(len(curve), 1)
         self.assertLessEqual(len(curve), 2)
+
+
+class TestRoundOneFixes(unittest.TestCase):
+    def test_pack_meaning_drops_an_artifact_that_does_not_fit_whole(self):
+        from cocoonml.harness import pack_meaning
+
+        tokens, targets = pack_meaning([((1, 2), (0, 1)), ((3, 4, 5), (1, 1, 1))], separator=9, length=5, extension_base=10)
+        self.assertEqual(tokens, [1, 2, 9, 9, 9])
+        self.assertEqual(targets, [2, 9, 11, 9, 9])
+
+    def test_form_loss_by_rank_excludes_padding(self):
+        import random
+        from cocoonml.attention import Attention
+        from cocoonml.harness import form_loss_by_rank
+
+        table = generate(forms=3, cuts=2, nonterminals=2, resolution=4, seed=11)
+        model = Attention(vocab=6, width=3, length=8, seed=1)
+        curve = form_loss_by_rank(model, table, count=4, per_context=2, separator=5, rng=random.Random(0))
+        self.assertLessEqual(len(curve), 2)
+
+    def test_delta_magnitude_grows_with_drift_where_the_flag_delta_saturates(self):
+        import random
+        from cocoonml.schema import delta, delta_magnitude, step
+
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=1)
+        rng = random.Random(0)
+        one = step(table, rng, Fraction(1, 8), Fraction(1, 2))
+        eight = one
+        for _ in range(7):
+            eight = step(eight, rng, Fraction(1, 8), Fraction(1, 2))
+        self.assertGreaterEqual(delta(table, eight), delta(table, one) * 0.9)
+        self.assertGreater(delta_magnitude(table, eight), delta_magnitude(table, one))
