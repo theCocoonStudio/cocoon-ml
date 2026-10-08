@@ -13,6 +13,10 @@ class TestSchema(unittest.TestCase):
         other = generate(forms=3, cuts=2, nonterminals=3, resolution=8, seed=7)
         self.assertEqual(self.table, other)
 
+    def test_a_resolution_below_two_is_refused(self):
+        with self.assertRaises(ValueError):
+            generate(forms=2, cuts=1, nonterminals=1, resolution=1, seed=0)
+
     def test_shares_and_orders_are_rational_and_at_the_grain(self):
         for node in self.table.nodes:
             self.assertIsInstance(node.share, Fraction)
