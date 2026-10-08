@@ -71,17 +71,21 @@ class TestSchema(unittest.TestCase):
         self.assertGreater(len(seen), 8)
         self.assertGreater(len(set(last)), 1)
 
-    def test_a_removed_sister_returns(self):
+    def test_a_removed_sister_returns_and_the_end_reflects_under_a_full_lean(self):
+        """Both deterministic: the pull is certain beyond the radius, and a full lean toward the
+        null sister from a share of one can only reflect."""
         table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=5)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(0, 0), Leaf(1, 0)  # the null is in sister 0
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(1, 0)
         centre = table.copy()
-        table.nodes[0].share = Fraction(0)
+        centre.nodes[0].share = Fraction(1, 2)
+        node.share = Fraction(0)  # sister 0 removed
         moved = step(table, random.Random(0), bound=Fraction(1), lean=Fraction(0), centre=centre, radius=Fraction(1, 4))
-        self.assertGreater(moved.nodes[0].share, 0)
-        at_end = table.copy()
-        at_end.nodes[0].share = Fraction(1)
-        for _ in range(20):
-            at_end = step(at_end, random.Random(1), bound=Fraction(1), lean=Fraction(1))
-        self.assertLess(at_end.nodes[0].share, 1)  # the end reflects even under a full lean
+        self.assertEqual(moved.nodes[0].share, Fraction(1, 8))  # displacement 1/2 over radius 1/4: the pull is certain
+        node.share = Fraction(1)
+        moved = step(table, random.Random(0), bound=Fraction(1), lean=Fraction(1))
+        self.assertEqual(moved.nodes[0].share, Fraction(7, 8))  # lean forces +1 toward the null sister; past 1 reflects
 
     def test_the_lean_moves_share_toward_the_null_sister(self):
         table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=5)
