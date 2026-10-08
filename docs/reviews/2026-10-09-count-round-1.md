@@ -2,7 +2,7 @@
 
 The rule: no number reaches Izzy until two full rounds and two further replications. This is the first round, taken against the count on the concept page and the code that realises it, before any number exists. Each item: the objection, what it does to the count, and what closes it.
 
-1. **Shares: frequencies or weights.** The code reads a share as the frequency of an alternative; the definitions also allow a weight on a daughter. Under the second reading no artifact draws anything and k artifacts pin no ratio by frequency: the whole "carried by k" paragraph is void. Closes only by Izzy's answer (on the page as a question). Until then the count is conditional on the first reading.
+1. **Shares: frequencies or weights.** *Closed on 2026-10-09 by Izzy's 2 + n: the two readings are the two operations of a semiring, ⊕ across sisters and ⊗ along a merge, and a daughter's weight is a sister with a null one level down. Not a choice; see the page.* The code reads a share as the frequency of an alternative; the definitions also allow a weight on a daughter. Under the second reading no artifact draws anything and k artifacts pin no ratio by frequency: the whole "carried by k" paragraph is void. Closes only by Izzy's answer (on the page as a question). Until then the count is conditional on the first reading.
 
 2. **Cuts per node per artifact assumes one visit.** The count gives each node two binary cuts per artifact. In a grammar a node may be visited several times in one derivation, or not at all. The carried count is per visit, and the expected visits per draw is the π of the count, so the correction is to read "per artifact" as "per visit" and let π carry the rest. Closes by wording; the √(kπ) line already has it right.
 

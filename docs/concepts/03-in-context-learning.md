@@ -126,3 +126,15 @@ The definitions also admit a second reading, and the two are not the same object
 The question, Izzy's: are shares frequencies of alternatives, weights on daughters, or both, with one at the choice points and one inside a merge? The count and the code follow the answer; until it is given, the code's reading is marked as mine.
 
 Also: `cocoonml/harness.py` packs several artifacts into one context with a separator form and reads loss by position as the recovery curve inside one window; `run()` trains on a table, reads the curve on it and on its drifted version. A smoke run of the chain exists in Claude's scratch; its numbers are under the rule and are not on this page.
+
+## The weight rule as a semiring, and the shares question closed (2026-10-09, after Izzy's "2 + n")
+
+Izzy: a tree is not two-dimensional; it is 2 + n, with n hidden, and the two are the axes of syntax and semantics. The two readings of a share were two visible axes of one object, not a fork, and the list of what a share can count is open, finite only to a reader. Izzy asked for the constraints on F, the function at a node; Claude's lookup, forced by that:
+
+F is not one function but two operations: along a merge, x ⊗ y; across sisters, x ⊕ y. The constraints: each associative with an identity, ⊗ distributing over ⊕, so that the sum over derivations of a string exists at all; the identity of ⊗ is the removed sister; degree one, so the gauge can be per node; closed on the rationals, Gaussian when phases are in; order a factor, ⊗ commutative. A commutative semiring. The two visible dimensions of the tree are those two operations, across and along.
+
+The carrier is complex in general, by the fork principle, the real case being phase zero, and the axes are projections of it, not separate tables: frequency is the squared modulus; cost is minus the log of the modulus, which at coarse resolution turns (plus, times) into (min, plus), the tropical semiring, the lean as a shortest path; phase is what both discard. One carrier, three readings; the n hidden dimensions are the readings a window does not resolve.
+
+The shares question is closed by this, not by a choice: a sister's amplitude is ⊕-side, a daughter's weight of being realised against null is a sister with a null, ⊕ again one level down (Izzy's nulls-and-levels theorem), and the code already holds the carrier. `projections`, `weighted_extension` and `cost_of` in `cocoonml/schema.py` read the three projections off the same amplitudes; the extension now rides on the carrier, so meaning and form are one table.
+
+The count, restated over the semiring: demand and carried are per projection, frequency pinned by draws, cost by the same draws read at coarse grain, phase only by ambiguous strings; the residual is the product over the projections a window fails to pin, and n_eff, the number of projections it pins at all, is the first number the apparatus can read without any theory.
