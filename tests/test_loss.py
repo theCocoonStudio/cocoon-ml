@@ -48,3 +48,16 @@ class TestSoftmaxCrossEntropy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLargeScores(unittest.TestCase):
+    def test_large_scores_do_not_overflow_and_the_loss_is_shift_invariant(self):
+        """Sweep 05a: two cells died in exp and log when two-layer logits grew past the range of a float."""
+        import math
+        from cocoonml.autograd import Autograd
+        from cocoonml.loss import softmax_cross_entropy_composed
+
+        small = [Autograd(1.0), Autograd(2.0), Autograd(0.5)]
+        large = [Autograd(1.0 + 1000.0), Autograd(2.0 + 1000.0), Autograd(0.5 + 1000.0)]
+        self.assertAlmostEqual(softmax_cross_entropy_composed(small, 1).value, softmax_cross_entropy_composed(large, 1).value, places=9)
+        self.assertFalse(math.isnan(softmax_cross_entropy_composed(large, 1).value))
