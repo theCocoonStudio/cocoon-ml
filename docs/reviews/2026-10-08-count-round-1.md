@@ -18,6 +18,8 @@ The rule: no number reaches Izzy until two full rounds and two further replicati
 
 8. **The smoke run is not evidence of anything.** It exists to show the chain executes; its numbers are at toy size, one seed, one table, and are excluded by the rule from any sentence to Izzy. Round two and the two replications are owed before any of them is said.
 
+9. **The predictive distribution let different strings interfere.** *Found and fixed on 2026-10-08, at the fresh session's read of the code.* As first written, `predictive` summed the amplitudes of every derivation consistent with the prefix and the next form, across strings, and squared the sum, so two continuations of one prefix interfered with each other. Under "the artifact is a string" distinct strings are distinguishable outcomes and add as probabilities; interference acts only among the derivations of one string, which is what `distribution` already did. `predictive` is now the conditional of `distribution`. T1 holds in this form (restated below); T2's test was re-run on it.
+
 **Added the same day, from the harness:** next-form prediction reads only the orthographic side; the protocol side needs a target that depends on the cuts. `pack_meaning` puts each artifact's extension at its separator as a token, and `meaning_loss_at_separators` reads the recovery of meaning against k. Closed in code before round two could raise it.
 
 Verdict after round one: the count stands conditional on item 1, with item 3 corrected in the statement, items 4 and 6 declared as gaps, item 5 folded into the ambiguity term, and item 7 the first theorem to attempt. Nothing in it is a number yet.
@@ -26,7 +28,7 @@ Verdict after round one: the count stands conditional on item 1, with item 3 cor
 
 **Statement.** In the constructed source, the predictive distribution of the next form given a prefix depends only on the nodes visited by some derivation consistent with the prefix. A node visited by none has no effect, whatever its share, order or phase.
 
-**Proof.** The predictive distribution is a ratio of two sums over derivations consistent with the prefix, each term a product over the derivation's visits of that node's amplitude. A node visited by no consistent derivation appears in no term of either sum. Hence both sums, and their ratio, are independent of it. Interference does not change this: the sums are over the same consistent set. ∎
+**Proof.** The predictive distribution is a ratio of two sums over strings consistent with the prefix (those continuing with the next form, over all of them), each string's probability the squared modulus of the sum of its derivations' amplitudes over a normaliser common to every string, each amplitude a product over the derivation's visits of that node's amplitude. A node visited by no consistent derivation appears in no amplitude of any consistent string, and the common normaliser cancels in the ratio. Hence both sums, and their ratio, are independent of it. Interference does not change this: it acts inside each string's squared sum, over the same consistent set. ∎ (Restated on 2026-10-08 after item 9; the first form of the proof summed amplitudes across strings, as the code did.)
 
 **What it gives the count.** Gap one, identification against prediction, has its first half: the residual that bounds prediction is at most the residual over the consistent-derivation set, never the whole tree. What it does not give: how much a node visited by some consistent derivations and not others matters, which is the weighted version and is the next theorem.
 
