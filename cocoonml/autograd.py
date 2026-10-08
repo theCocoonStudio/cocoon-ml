@@ -71,6 +71,45 @@ class Autograd:
         out._backward = _backward
         return out
 
+    def exp(self):
+        import math
+
+        out = Autograd(math.exp(self.value), (self,), "exp")
+
+        def _backward():
+            # d/dx e^x = e^x, which is the output itself
+            self._derivative += out.value * out._derivative
+
+        out._backward = _backward
+        return out
+
+    def log(self):
+        import math
+
+        out = Autograd(math.log(self.value), (self,), "log")
+
+        def _backward():
+            # d/dx ln x = 1 / x
+            self._derivative += (1.0 / self.value) * out._derivative
+
+        out._backward = _backward
+        return out
+
+    def __neg__(self):
+        return self * -1.0
+
+    def __truediv__(self, other):
+        other = other if isinstance(other, Autograd) else Autograd(other)
+        out = Autograd(self.value / other.value, (self, other), "/")
+
+        def _backward():
+            # d/da (a / b) = 1 / b ; d/db (a / b) = -a / b^2
+            self._derivative += (1.0 / other.value) * out._derivative
+            other._derivative += (-self.value / other.value**2) * out._derivative
+
+        out._backward = _backward
+        return out
+
     def backward(self, _derivative=1.0):
         # 1. Build the topological sequence dynamically
         topo_list = []
