@@ -221,18 +221,28 @@ def form_loss_by_rank(model, table, count, per_context, separator, rng, fill=Fal
 # last `window` steps improves on the previous window's by less than `tolerance` of it, or `cap`.
 
 
-def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=2000):
-    """Train step by step on make_batch() until the plateau rule holds or the cap; returns the
-    losses, so the caller can report whether the cap or the rule ended training."""
-    losses = []
+def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=2000, evaluate=None):
+    """Train step by step on make_batch() until the plateau rule holds or the cap; returns
+    (losses, evaluations), so the caller can report whether the cap or the rule ended training and
+    the last two readings. With `evaluate`, a callable returning the loss on a fixed held-out set,
+    the rule compares its last two readings, taken every `window` steps (sweep 04 round one,
+    item 3: on the batch loss the rule stops at the batch noise); without it, the means of the last
+    two windows of batch losses."""
+    losses, evaluations = [], []
     while len(losses) < cap:
         losses.append(model.train_step(make_batch(), lr))
-        if len(losses) >= 2 * window:
+        if len(losses) % window:
+            continue
+        if evaluate is not None:
+            evaluations.append(evaluate())
+            if len(evaluations) >= 2 and evaluations[-1] >= evaluations[-2] * (1 - tolerance):
+                break
+        elif len(losses) >= 2 * window:
             last = sum(losses[-window:]) / window
             before = sum(losses[-2 * window : -window]) / window
             if last >= before * (1 - tolerance):
                 break
-    return losses
+    return losses, evaluations
 
 
 # --- The scrambled-pairs control (sweep 04 round one, item 2) -----------------------------------
