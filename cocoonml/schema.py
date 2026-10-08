@@ -439,3 +439,55 @@ def delta_magnitude(a, b):
         moved += sum(abs(float(ea.order) - float(eb.order)) for ea, eb in zip(na.sisters, nb.sisters))
         total += 2 + len(na.sisters)
     return moved / total if total else 0.0
+
+
+# --- Identification error: what a window pins, as a distance -----------------------------------
+# n_eff counts visits, so two tables with the same readings and different shares read the same to
+# it (sweep 02, round one, item 2). The identification error is the distance between the shares a
+# reader estimates off the window's artifacts and the table's own, per node: what n_eff was taken
+# for. The reader has the shape and the strings, nothing else: every derivation the shape admits
+# counts, the derivations of one string at equal weight summing to one, so a string is one
+# observation. Orders are estimated per sister, where the reading is defined; a silent daughter
+# leaves the order unidentifiable, which the estimate shows as one half.
+
+
+def estimate_shares(table_shape, artifacts):
+    """Per node: (share estimate, its weight, [(order estimate, weight) per sister]); an estimate
+    is None where no derivation visited it. Weights are observations, strings counting once."""
+    n = len(table_shape.nodes)
+    sister_w = [[0.0, 0.0] for _ in range(n)]
+    order_w = [[[0.0, 0.0], [0.0, 0.0]] for _ in range(n)]
+    for string in artifacts:
+        ds = derivations(table_shape, string)
+        if not ds:
+            continue
+        w = 1.0 / len(ds)
+        for d in ds:
+            for node, si, oi in d:
+                sister_w[node][si] += w
+                order_w[node][si][oi] += w
+    out = []
+    for i in range(n):
+        total = sister_w[i][0] + sister_w[i][1]
+        share = (sister_w[i][0] / total, total) if total > 0 else (None, 0.0)
+        orders = []
+        for si in range(2):
+            t = order_w[i][si][0] + order_w[i][si][1]
+            orders.append((order_w[i][si][0] / t, t) if t > 0 else (None, 0.0))
+        out.append((share[0], share[1], orders))
+    return out
+
+
+def identification_error(table, artifacts):
+    """(mean absolute share error over the nodes the window identifies, or None; coverage, the
+    identified fraction of nodes; per node (share error or None, [order error or None per sister]))."""
+    estimates = estimate_shares(table, artifacts)
+    per_node, errors = [], []
+    for node, (share, _, orders) in zip(table.nodes, estimates):
+        e = abs(share - float(node.share)) if share is not None else None
+        oe = [abs(o - float(sister.order)) if o is not None else None for (o, _), sister in zip(orders, node.sisters)]
+        per_node.append((e, oe))
+        if e is not None:
+            errors.append(e)
+    mean = sum(errors) / len(errors) if errors else None
+    return mean, len(errors) / len(table.nodes), per_node
