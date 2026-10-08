@@ -34,7 +34,7 @@ class TestMeaning(unittest.TestCase):
 
         tokens, targets = pack_meaning([((1, 2), (0, 1, 1)), ((3,), (1,))], separator=9, length=6, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 3, 9, 9])
-        self.assertEqual(targets, [2, 9, 12, 9, 11, 9])
+        self.assertEqual(targets, [2, 9, 16, 9, 10, 9])
 
     def test_meaning_curve_has_one_entry_per_artifact_in_the_context(self):
         import random
@@ -54,7 +54,7 @@ class TestRoundOneFixes(unittest.TestCase):
 
         tokens, targets = pack_meaning([((1, 2), (0, 1)), ((3, 4, 5), (1, 1, 1))], separator=9, length=5, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 9, 9])
-        self.assertEqual(targets, [2, 9, 11, 9, 9])
+        self.assertEqual(targets, [2, 9, 13, 9, 9])
 
     def test_form_loss_by_rank_excludes_padding(self):
         import random
@@ -126,14 +126,14 @@ class TestPairsInTheInput(unittest.TestCase):
         from cocoonml.harness import pack_pairs
 
         tokens, targets = pack_pairs([((1, 2), (0, 1)), ((3,), (1,))], separator=9, length=8, extension_base=10)
-        self.assertEqual(tokens, [1, 2, 9, 11, 3, 9, 11, 9])
-        self.assertEqual(targets, [2, 9, 11, 3, 9, 11, 9, 9])
+        self.assertEqual(tokens, [1, 2, 9, 13, 3, 9, 10, 9])
+        self.assertEqual(targets, [2, 9, 13, 3, 9, 10, 9, 9])
 
     def test_pack_pairs_drops_an_artifact_whose_pair_does_not_fit(self):
         from cocoonml.harness import pack_pairs
 
         tokens, _ = pack_pairs([((1, 2), (0, 1)), ((3, 4), (1, 1))], separator=9, length=7, extension_base=10)
-        self.assertEqual(tokens, [1, 2, 9, 11, 9, 9, 9])
+        self.assertEqual(tokens, [1, 2, 9, 13, 9, 9, 9])
 
     def test_filled_with_pairs_counts_the_extension_slot_and_the_curves_read_the_separators(self):
         import random
@@ -151,7 +151,7 @@ class TestPairsInTheInput(unittest.TestCase):
         tokens, targets, n = filled(table, 9, 10, rng, extension_base=10, pairs=True)
         self.assertEqual(n, 3)  # a form, a separator and an extension token each: nine of ten slots
         self.assertEqual(tokens[-1], 9)  # the tenth slot is padding
-        self.assertIn(tokens[-2], (10, 11))
+        self.assertGreaterEqual(tokens[-2], 10)  # an extension token (the code's value depends on the multiset)
         model = Attention(vocab=16, width=3, length=10, seed=1)
         meaning = meaning_loss_at_separators(model, table, 3, 0, 9, 10, 10, rng, fill=True, pairs=True)
         self.assertEqual(len(meaning), 3)
@@ -209,3 +209,40 @@ class TestScrambledPairs(unittest.TestCase):
         self.assertEqual([i for i, t in enumerate(out) if t >= 10], [3, 6, 10])
         self.assertEqual(sorted(t for t in out if t >= 10), [10, 11, 12])
         self.assertEqual(tokens, [1, 2, 9, 11, 3, 9, 12, 2, 1, 9, 10, 9])  # the input is not mutated
+
+
+class TestExtensionCode(unittest.TestCase):
+    def test_the_code_is_injective_and_dense_over_every_multiset_up_to_a_size(self):
+        from itertools import combinations_with_replacement
+        from cocoonml.harness import extension_code, extension_vocabulary
+
+        for cut_count in (2, 3):
+            codes = {}
+            for size in range(1, 6):
+                for cuts in combinations_with_replacement(range(cut_count), size):
+                    codes[cuts] = extension_code(cuts, cut_count)
+                    self.assertEqual(codes[cuts], extension_code(tuple(reversed(cuts)), cut_count))  # order-free
+            self.assertEqual(len(set(codes.values())), len(codes))  # injective
+            self.assertEqual(sorted(codes.values()), list(range(extension_vocabulary(cut_count, 5))))  # dense
+
+    def test_the_sum_of_cuts_was_not_injective_and_the_code_is(self):
+        from cocoonml.harness import extension_code
+
+        a, b = (0, 0, 1), (0, 0, 0, 0, 1)  # the two extensions sweep 05's token collapsed onto "sum 1"
+        self.assertEqual(sum(a), sum(b))
+        self.assertNotEqual(extension_code(a, 2), extension_code(b, 2))
+
+    def test_the_vocabulary_bounds_every_token_a_table_can_produce(self):
+        import random
+        from cocoonml.harness import extension_vocabulary, filled
+        from cocoonml.schema import max_extension_size
+
+        table = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1)
+        base, size = 10, max_extension_size(table)
+        self.assertEqual(size, 5)
+        self.assertEqual(extension_vocabulary(2, size), 20)
+        rng = random.Random(0)
+        for _ in range(50):
+            tokens, _, _ = filled(table, 9, 40, rng, extension_base=base, pairs=True)
+            for t in tokens:
+                self.assertLess(t, base + 20)
