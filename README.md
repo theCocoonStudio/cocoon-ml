@@ -21,3 +21,4 @@ No install, no dependencies. Python 3.11 or later.
 ## Pieces
 
 1. `docs/concepts/01-autograd.md`, `cocoonml/autograd.py`
+3. `docs/concepts/03-in-context-learning.md`: the first unsolved problem, its objects, the drift test, both predictions lodged before any run (code to follow)
