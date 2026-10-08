@@ -369,3 +369,50 @@ class TestTheoremTwo(unittest.TestCase):
                     self.assertAlmostEqual(tv, 0.0, places=12)  # T1
                 checked += 1
         self.assertGreater(checked, 20)
+
+
+class TestIdentificationError(unittest.TestCase):
+    def _two_strings(self, share):
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        node.share = share
+        return table
+
+    def test_the_error_vanishes_as_the_window_grows_and_coverage_reads_the_visited_nodes(self):
+        from cocoonml.schema import identification_error
+
+        table = self._two_strings(Fraction(3, 8))
+        rng = random.Random(0)
+        many = [draw(table, rng)[0] for _ in range(2000)]
+        error, coverage, per_node = identification_error(table, many)
+        self.assertEqual(coverage, 1.0)
+        self.assertLess(error, 0.05)
+        self.assertEqual(per_node[0][1], [0.5, 0.5])  # a silent daughter leaves the order unidentifiable
+        self.assertEqual(identification_error(table, [])[0], None)
+        self.assertEqual(identification_error(table, [])[1], 0.0)
+
+    def test_same_readings_different_shares_n_eff_is_blind_and_the_error_is_not(self):
+        """Sweep 02, round one, item 2."""
+        from cocoonml.schema import identification_error, n_eff
+
+        table = self._two_strings(Fraction(3, 8))
+        other = self._two_strings(Fraction(7, 8))
+        rng = random.Random(1)
+        window = [draw(table, rng)[0] for _ in range(200)]
+        self.assertEqual(n_eff(table, window, 4)[0], n_eff(other, window, 4)[0])
+        self.assertLess(identification_error(table, window)[0], identification_error(other, window)[0])
+
+    def test_an_ambiguous_string_is_one_observation(self):
+        from cocoonml.schema import estimate_shares
+
+        table = generate(forms=1, cuts=1, nonterminals=1, resolution=8, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(0, 0), Leaf(1, 0)
+        share, weight, _ = estimate_shares(table, [(1,)])[0]
+        self.assertAlmostEqual(weight, 1.0)
+        self.assertAlmostEqual(share, 0.5)
