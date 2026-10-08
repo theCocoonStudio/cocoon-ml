@@ -364,3 +364,36 @@ def n_eff(table, artifacts, phase_resolution):
         grades.append((m, p))
     total = sum(m + p for m, p in grades)
     return total / (2 * len(table.nodes)), grades
+
+
+# --- T2: the weighted T1 ---------------------------------------------------------------------
+# How much a node visited by SOME consistent derivations moves the prediction. Let m be the share
+# of the consistent squared-amplitude mass that passes through the node (its consistent mass),
+# s its share, δ a move of that share. Claim (sketch): the total variation of the predictive
+# distribution is at most m · |δ| / min(s, 1 − s) to first order in δ. T1 is the case m = 0.
+# consistent_mass and sensitivity below let a test check the claim on random tables.
+
+
+def consistent_mass(table, prefix, node_index):
+    """The share of consistent squared-amplitude mass whose derivations visit the node."""
+    through = total = 0.0
+    for forms, _, choices in _all_derivations(table):
+        if forms[: len(prefix)] != tuple(prefix):
+            continue
+        w = abs(_amplitude(table, choices)) ** 2
+        total += w
+        if any(n == node_index for n, _, _ in choices):
+            through += w
+    return through / total if total > 0 else 0.0
+
+
+def sensitivity(table, prefix, node_index, delta):
+    """Total variation distance between the predictive distributions before and after moving the
+    node's share by delta (clipped to [0, 1])."""
+    before = predictive(table, prefix)
+    moved = table.copy()
+    node = moved.nodes[node_index]
+    node.share = min(Fraction(1), max(Fraction(0), node.share + delta))
+    after = predictive(moved, prefix)
+    keys = set(before) | set(after)
+    return 0.5 * sum(abs(before.get(k, 0.0) - after.get(k, 0.0)) for k in keys)
