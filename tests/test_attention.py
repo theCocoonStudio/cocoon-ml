@@ -95,3 +95,39 @@ class TestWithinArtifactPosition(unittest.TestCase):
                 self.assertAlmostEqual(analytic, (up - down) / (2 * h), places=5)
                 checked += 1
         self.assertEqual(checked, 9)
+
+
+class TestTwoLayers(unittest.TestCase):
+    def test_one_layer_is_unchanged_and_two_layers_share_its_first_layer(self):
+        from cocoonml.attention import Attention
+
+        one = Attention(vocab=6, width=3, length=5, seed=2, separator=5)
+        two = Attention(vocab=6, width=3, length=5, seed=2, separator=5, layers=2)
+        first = [p.value for p in one.parameters()]
+        self.assertEqual([p.value for p in two.parameters()][: len(first)], first)
+        self.assertEqual(sum(1 for _ in two.parameters()) - len(first), 3 * 3 * 3)
+        tokens = [1, 2, 5, 3, 4]
+        l1, a1 = one.forward(tokens)
+        l2, a2 = two.forward(tokens)
+        self.assertEqual(len(l2), 5)
+        self.assertEqual(len(a2[0]), 3)
+        self.assertNotAlmostEqual(l1[4][0].value, l2[4][0].value, places=6)
+
+    def test_two_layer_gradient_matches_finite_differences_in_every_block(self):
+        from cocoonml.attention import Attention
+
+        model = Attention(vocab=6, width=3, length=6, seed=0, separator=5, layers=2)
+        tokens, targets = [1, 2, 5, 3, 4, 5], [2, 5, 3, 4, 5, 5]
+        for p in model.parameters():
+            p._derivative = 0.0
+        model.loss(tokens, targets).backward()
+        h = 1e-5
+        q2, k2, v2 = model.more[0]
+        for p in (model.query[0][0], model.key[1][2], model.value[2][1], q2[0][1], k2[2][2], v2[1][0], model.within[1][1], model.embed[3][0], model.readout[4][2]):
+            analytic, saved = p._derivative, p.value
+            p.value = saved + h
+            up = model.loss(tokens, targets).value
+            p.value = saved - h
+            down = model.loss(tokens, targets).value
+            p.value = saved
+            self.assertAlmostEqual(analytic, (up - down) / (2 * h), places=5)
