@@ -83,7 +83,7 @@ def drifted(table, steps, bound, lean, rng, radius=None):
 
 def run(table, model_seed, width, length, train_steps, batch_size, per_context, lr, drift_steps, bound, lean, eval_count, seed, radius=None):
     """The whole apparatus once: train on the table, read the curve on the table and on its
-    drifted version. Returns (train_losses, curve_same, curve_drifted, delta_steps)."""
+    drifted version. Returns (train_losses, curve_same, curve_drifted, the drifted table)."""
     rng = random.Random(seed)
     vocab = 1 + max(max((leaf.form for node in table.nodes for e in node.sisters for leaf in (e.first, e.second) if not isinstance(leaf, int)), default=0), 1) + 1
     separator = vocab - 1
