@@ -236,3 +236,40 @@ class TestTheoremOne(unittest.TestCase):
         a.share = Fraction(7, 8)
         after = predictive(table, (1,))
         self.assertNotAlmostEqual(before[3], after[3], places=6)
+
+
+class TestProjections(unittest.TestCase):
+    def test_frequency_cost_and_phase_are_three_readings_of_one_amplitude(self):
+        import cmath, math
+        from cocoonml.schema import projections
+
+        a = 0.5 * cmath.exp(1j * 1.0)
+        frequency, cost, phase = projections(a)
+        self.assertAlmostEqual(frequency, 0.25)
+        self.assertAlmostEqual(cost, -math.log(0.5))
+        self.assertAlmostEqual(phase, 1.0)
+
+    def test_the_extension_of_an_unambiguous_string_is_its_cuts_at_equal_weight(self):
+        from cocoonml.schema import weighted_extension
+
+        table = generate(forms=2, cuts=2, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(2, 1)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        ext = weighted_extension(table, (1, 2))
+        self.assertAlmostEqual(ext[0], 0.5)
+        self.assertAlmostEqual(ext[1], 0.5)
+
+    def test_cost_is_lower_for_the_more_frequent_string(self):
+        from cocoonml.schema import cost_of
+
+        table = generate(forms=2, cuts=1, nonterminals=1, resolution=4, seed=0)
+        node = table.nodes[0]
+        node.sisters[0].first, node.sisters[0].second = Leaf(1, 0), Leaf(0, 0)
+        node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(0, 0)
+        for e in node.sisters:
+            e.order = Fraction(1)
+        node.share = Fraction(3, 4)
+        self.assertLess(cost_of(table, (1,)), cost_of(table, (2,)))

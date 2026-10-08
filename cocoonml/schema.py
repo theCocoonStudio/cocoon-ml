@@ -291,3 +291,44 @@ def visited_by_consistent_derivations(table, prefix):
         if forms[: len(prefix)] == tuple(prefix):
             nodes.update(node for node, _, _ in choices)
     return nodes
+
+
+# --- The three projections of one carrier ------------------------------------------------------
+# The table's values are complex amplitudes (Gaussian rationals in principle; floats here). A
+# reader takes projections: FREQUENCY is the squared modulus; COST is minus the log of the modulus,
+# which under coarse resolution turns (plus, times) into (min, plus), the tropical semiring; PHASE
+# is what both of those discard. None of these is a separate table; they are the same amplitudes
+# read three ways. The extension under the carrier: each derivation's cuts weighted by its
+# amplitude, so meaning rides on the same values as form.
+
+
+def projections(amplitude):
+    """(frequency, cost, phase) of one amplitude."""
+    r = abs(amplitude)
+    return r * r, (-math.log(r) if r > 0 else math.inf), cmath.phase(amplitude)
+
+
+def weighted_extension(table, string):
+    """The extension of a string under interference: for each cut, the squared modulus of the
+    summed amplitudes of the derivations of `string` that carry it, normalised over cuts present.
+    With one derivation this is the plain multiset of its cuts, each at weight one."""
+    sums = {}
+    for forms, cuts, choices in _all_derivations(table):
+        if forms != tuple(string):
+            continue
+        a = _amplitude(table, choices)
+        for c in set(cuts):
+            sums[c] = sums.get(c, 0j) + a * cuts.count(c)
+    weights = {c: abs(a) ** 2 for c, a in sums.items()}
+    total = sum(weights.values())
+    return {c: w / total for c, w in weights.items()} if total > 0 else weights
+
+
+def cost_of(table, string):
+    """The cost projection of a string: minus the log of the modulus of its summed amplitude."""
+    total = 0j
+    for forms, _, choices in _all_derivations(table):
+        if forms == tuple(string):
+            total += _amplitude(table, choices)
+    r = abs(total)
+    return -math.log(r) if r > 0 else math.inf
