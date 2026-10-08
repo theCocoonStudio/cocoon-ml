@@ -38,7 +38,12 @@ def _softmax(scores):
 
 
 class Attention:
-    def __init__(self, vocab, width, length, seed):
+    def __init__(self, vocab, width, length, seed, separator=None):
+        """With `separator`, a second position embedding indexed by the position since the last
+        separator is added to the absolute one (sweep 03 round one, item 5: with absolute positions
+        only, a one-layer model cannot locate itself inside an artifact past the first). Its
+        weights are drawn after the others, so the rest of the initialisation is the same with or
+        without it."""
         rng = random.Random(seed)
         scale = 0.5
         self.vocab, self.width, self.length = vocab, width, length
@@ -48,15 +53,32 @@ class Attention:
         self.key = _matrix(width, width, rng, scale)
         self.value = _matrix(width, width, rng, scale)
         self.readout = _matrix(vocab, width, rng, scale)
+        self.separator = separator
+        self.within = _matrix(length, width, rng, scale) if separator is not None else None
 
     def parameters(self):
-        for block in (self.embed, self.position, self.query, self.key, self.value, self.readout):
+        blocks = [self.embed, self.position, self.query, self.key, self.value, self.readout]
+        if self.within is not None:
+            blocks.append(self.within)
+        for block in blocks:
             for row in block:
                 yield from row
+
+    def offsets(self, tokens):
+        """Position since the last separator, the separator itself at zero; before any separator,
+        the absolute position."""
+        out, last = [], None
+        for i, t in enumerate(tokens):
+            if t == self.separator:
+                last = i
+            out.append(i if last is None else i - last)
+        return out
 
     def forward(self, tokens):
         """Logits per position over the vocabulary, and the attended vectors (the probe)."""
         xs = [[e.add(p) for e, p in zip(self.embed[t], self.position[i])] for i, t in enumerate(tokens)]
+        if self.within is not None:
+            xs = [[x.add(w) for x, w in zip(row, self.within[o])] for row, o in zip(xs, self.offsets(tokens))]
         qs = [_matvec(self.query, x) for x in xs]
         ks = [_matvec(self.key, x) for x in xs]
         vs = [_matvec(self.value, x) for x in xs]
