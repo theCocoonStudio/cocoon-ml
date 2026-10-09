@@ -68,3 +68,24 @@ class TestCorpus(unittest.TestCase):
         self.assertGreaterEqual(d, 0.0)
         same = estimated_distance(tables[0], corpus.forms(), corpus.forms())
         self.assertEqual(same, 0.0)
+
+
+class TestCorpusReaders(unittest.TestCase):
+    def test_readers_run_on_corpus_windows_and_the_control_is_zero_for_an_order_blind_reading(self):
+        from cocoonml.attention import Attention
+        from cocoonml.corpus import form_losses_by_rank, order_control, probe_rows, whole_rank
+
+        tables = two_tables()
+        corpus = produce(tables, random.Random(5), Fraction(1, 8), Fraction(3, 4), Fraction(2, 8), count=60)
+        ws = windows(corpus, separator=4, length=20)
+        model = Attention(vocab=5, width=3, length=20, seed=1, separator=4)
+        whole = whole_rank(ws)
+        self.assertGreater(whole, 0)
+        curve = form_losses_by_rank(model, ws, 4, whole)
+        self.assertEqual(len(curve), whole)
+        self.assertTrue(all(c > 0 for c in curve))
+        control = order_control(model, ws, 4, random.Random(0), whole)
+        self.assertEqual(len(control), whole)
+        rows = probe_rows(model, ws, corpus, corpus.walks[0] + corpus.walks[1], 4)
+        self.assertEqual(len(rows), sum(len(u) for _, _, u in ws))
+        self.assertTrue(all(y == 0.0 for _, y in rows))  # every training artifact's state is in the ball
