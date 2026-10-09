@@ -223,7 +223,7 @@ def r4_disagree(cells_by_size, train_radius, band=0.0):
     return False, f"did not hold over {names}: {', '.join(keys) if keys else 'no comparison in common'} agree"
 
 
-def host_exceeds(last_seconds, width, layers, next_width, next_layers, limit_seconds=3600.0):
+def host_exceeds(last_seconds, width, layers, next_width, next_layers, limit_seconds=4 * 3600.0):
     """The host row: the next size's time, estimated from the last cell's seconds scaled by
     (w'/w)² · (ℓ'/ℓ), exceeds the limit per cell."""
     estimate = last_seconds * (next_width / width) ** 2 * (next_layers / layers)
