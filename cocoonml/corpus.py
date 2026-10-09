@@ -142,7 +142,10 @@ def estimated_distance(table_shape, reading_forms, training_forms):
 
 
 def position_losses(model, tokens, targets):
-    """-log p(target) at every position, as floats."""
+    """-log p(target) at every position, as floats. A model with its own `position_losses` (the
+    array model) answers directly; the scalar model's logits are read as before."""
+    if hasattr(model, "position_losses"):
+        return list(model.position_losses(tokens, targets))
     logits, _ = model.forward(tokens)
     out = []
     for lg, t in zip(logits, targets):
