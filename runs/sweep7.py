@@ -18,7 +18,7 @@ import json, math, random, sys, time
 from fractions import Fraction
 
 from cocoonml.array_attention import ArrayAttention
-from cocoonml.corpus import bin_windows, form_losses_by_rank, order_control, probe_rows, produce, whole_rank, window_distances, window_truth_distances, windows
+from cocoonml.corpus import bin_windows, form_losses_by_rank, form_losses_by_rank_with_error, order_control, probe_rows, produce, whole_rank, window_distances, window_truth_distances, windows
 from cocoonml.harness import train_until_plateau
 from cocoonml.probe import fit, r_squared
 from cocoonml.schema import generate
@@ -57,7 +57,7 @@ training_forms = [a.forms for a in corpus.artifacts]  # every training string, n
 
 def curves(window_list, rng_):
     w = min(whole, whole_rank(window_list)) if window_list else 0
-    return {"windows": len(window_list), "whole": w, "form_by_rank": form_losses_by_rank(model, window_list, SEP, w), "order_control_by_rank": order_control(model, window_list, SEP, rng_, w)}
+    return {"windows": len(window_list), "whole": w, "form_by_rank": form_losses_by_rank(model, window_list, SEP, w), "form_by_rank_error": form_losses_by_rank_with_error(model, window_list, SEP, w), "order_control_by_rank": order_control(model, window_list, SEP, rng_, w)}
 
 
 def read(window_list, source, rng_):

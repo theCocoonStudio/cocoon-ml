@@ -164,3 +164,26 @@ class TestWindowsDropTheTail(unittest.TestCase):
         self.assertEqual([len(u) for _, _, u in ws], [2, 2, 2, 2, 2])
         # one artifact: the only window is kept
         self.assertEqual(len(windows(Corpus(arts[:1], [[None]]), 4, 8)), 1)
+
+
+class TestFormLossError(unittest.TestCase):
+    def test_the_mean_with_error_agrees_with_the_mean_and_carries_a_band(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.array_attention import ArrayAttention
+        from cocoonml.corpus import form_losses_by_rank, form_losses_by_rank_with_error, produce, windows, whole_rank
+        from cocoonml.schema import generate
+
+        tables = [generate(forms=3, cuts=2, nonterminals=2, resolution=4, seed=10 + i, graded=True) for i in range(2)]
+        corpus = produce(tables, random.Random(1), Fraction(1, 4), Fraction(3, 4), Fraction(1, 4), 80, 1.0, 0.5)
+        ws = windows(corpus, 4, 16)
+        model = ArrayAttention(vocab=5, width=3, length=16, seed=0, separator=4, layers=1)
+        w = whole_rank(ws)
+        plain = form_losses_by_rank(model, ws, 4, w)
+        rich = form_losses_by_rank_with_error(model, ws, 4, w)
+        self.assertEqual(len(plain), len(rich))
+        for (mean, se, n), p in zip(rich, plain):
+            # the plain mean weights every form target equally; the per-window mean weights windows equally: close, not equal
+            self.assertLess(abs(mean - p), 0.5)
+            self.assertGreaterEqual(n, 1)
+            self.assertTrue(se is None or se >= 0.0)
