@@ -169,10 +169,10 @@ class TestRows(unittest.TestCase):
         self.assertNotIn("level_2", detail)  # +0.8, +0.8, +0.4: the same sign
 
     def test_host_exceeds_at_the_boundary(self):
-        self.assertFalse(host_exceeds(3600.0, 96, 7, 96, 7)[0])
-        self.assertTrue(host_exceeds(3600.1, 96, 7, 96, 7)[0])
-        self.assertFalse(host_exceeds(1399.0, 96, 7, 144, 8)[0])  # 1399 · 2.25 · 8/7 = 3597
-        self.assertTrue(host_exceeds(1401.0, 96, 7, 144, 8)[0])  # 3603
+        self.assertFalse(host_exceeds(14400.0, 96, 7, 96, 7)[0])  # the default bound: four hours per cell
+        self.assertTrue(host_exceeds(14400.1, 96, 7, 96, 7)[0])
+        self.assertFalse(host_exceeds(1399.0, 96, 7, 144, 8, limit_seconds=3600.0)[0])  # 1399 · 2.25 · 8/7 = 3597
+        self.assertTrue(host_exceeds(1401.0, 96, 7, 144, 8, limit_seconds=3600.0)[0])  # 3603
         self.assertTrue(host_exceeds(1399.0, 96, 7, 144, 8, limit_seconds=3000.0)[0])
 
 
