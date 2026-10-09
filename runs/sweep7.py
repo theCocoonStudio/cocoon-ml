@@ -104,7 +104,7 @@ def probe(rows, target):
 # the probe rows carry a window index per reading; offset them so windows of different readings never share an index
 print(json.dumps({
     "run": name, "args": sys.argv[1:], "seconds": round(time.time() - t0, 1), "tables": n_tables, "layers": layers, "width": width, "scale": scale, "lr": LR,
-    "train_steps": len(losses), "hit_cap": len(losses) >= cap, "evaluations": evaluations, "train_first": losses[0], "train_last": losses[-1],
+    "train_steps": len(losses), "hit_cap": len(losses) >= cap, "diverged": not math.isfinite(losses[-1]), "evaluations": evaluations, "train_first": losses[0], "train_last": losses[-1],
     "corpus_artifacts": len(corpus), "corpus_windows": len(ws), "whole": whole, "same": same, "held": held_reading, "points": points,
     "probe_r2_truth_distance": probe(rows, 1), "probe_r2_rank": probe(rows, 2),
 }))
