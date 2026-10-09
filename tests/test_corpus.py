@@ -187,3 +187,24 @@ class TestFormLossError(unittest.TestCase):
             self.assertLess(abs(mean - p), 0.5)
             self.assertGreaterEqual(n, 1)
             self.assertTrue(se is None or se >= 0.0)
+
+
+class TestBall(unittest.TestCase):
+    def test_the_ball_deduplicates_and_answers_like_the_list(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.corpus import Ball, distance_from_ball, produce
+        from cocoonml.schema import generate
+
+        tables = [generate(forms=3, cuts=2, nonterminals=2, resolution=4, seed=10 + i, graded=True) for i in range(2)]
+        corpus = produce(tables, random.Random(1), Fraction(1, 4), Fraction(3, 4), Fraction(1, 4), 300, 1.0, 0.5)
+        raw = [state for walk in corpus.walks for state in walk]
+        ball = Ball(raw)
+        self.assertLess(len(ball), len(raw))  # the walks revisit states
+        probe = corpus.walks[0][len(corpus.walks[0]) // 2]
+        for phases in (True, False):
+            self.assertAlmostEqual(distance_from_ball(probe, ball, phases), distance_from_ball(probe, raw, phases), places=12)
+        far = corpus.walks[1][-1]
+        for phases in (True, False):
+            self.assertAlmostEqual(distance_from_ball(far, ball, phases), distance_from_ball(far, raw, phases), places=12)
+        self.assertEqual(ball.distance(probe), ball.distance(probe))  # cached answer stable
