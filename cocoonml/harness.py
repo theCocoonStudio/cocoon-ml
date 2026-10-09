@@ -6,6 +6,7 @@ position. A later position has seen more artifacts, so loss by position is the r
 against k, read inside one window. Nothing here reports a result; it produces the numbers the
 rule applies to (two dialectical rounds, two replications, before any number is spoken)."""
 
+import math
 import random
 
 from cocoonml.attention import Attention
@@ -304,6 +305,8 @@ def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=20
     losses, evaluations, stale = [], [], 0
     while len(losses) < cap:
         losses.append(model.train_step(make_batch(), lr))
+        if not math.isfinite(losses[-1]):
+            break  # the step overflowed: a diverged cell stops here instead of running to the cap on NaN (2026-10-09, the first derived-size cells)
         if len(losses) % window:
             continue
         if evaluate is not None:
