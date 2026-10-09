@@ -164,3 +164,14 @@ Izzy: the adequate size should be derivable, conceptually, and at least empirica
 ## A prediction lodged elsewhere (Izzy, 2026-10-08 late, in a Google Search AI Mode thread; records gemini/exports/gemini-session-02.md)
 
 Verbatim: "the more noise there is at training, the more likely a model is to prepare for it. the impetus for the mechanism is obvious in this light. the more noise, the more the weights account for learning." And the shape it predicts: "less noisy training --> the model will be good at its trained tasks initially. more noisy training --> the model will initially be worse at its trained task." Also there: "training is inducing just a fictitious force", and the information horizon "is NOT only a function of the family of problems the ai was trained on." Recorded here so the runs can read against it: the training-noise axis is the drift the ensemble carries (the ball's radius), and the curve's early ordering by noise is a reading the complete system can take before any drift reading.
+
+## Claude's prediction on the training curve, lodged before Izzy's full statement (2026-10-09, 02:15; Izzy asked for it so neither primes the other)
+
+The axis is the drift training contained (the ball's radius, with the step rate); the readings are the complete system's: the form curve by rank inside the ball (the trained task), outside it (the untrained task), and the order control. Mine, marked as mine, before reading theirs:
+
+- **Trained task, initially:** low noise ahead (a stationary target is fitted fastest); high noise behind, its target moving and its marginal broader.
+- **Trained task, after a long training:** low noise still ahead on the origin table by a small persistent margin; averaged over the ball no gap, the high-noise model having learned the ball.
+- **Untrained task, initially:** both poor; high noise slightly ahead from the start, its marginal covering more.
+- **Untrained task, after a long training:** high noise clearly ahead. The low-noise model's recovery drops sharply at the training radius; the high-noise model's decays past it with a scale set by the radius, graded, not flat.
+- **The crossing:** the two curves cross, low noise ahead early and on the trained task, high noise ahead late and outside; the crossing comes later in training the larger the radius.
+- **The extremes:** no noise, the stationary corner: no recovery of drift beyond the family and the order control at zero (there is no succession of states to read). Maximal noise, the free walk at a high step rate: the model learns the marginal over the whole space, the recovery curves are flat because nothing is out of distribution, and the control falls back toward zero because the window carries no index. So the control against noise is non-monotonic: zero at both extremes, positive between, with its peak where the drift per window is readable.
