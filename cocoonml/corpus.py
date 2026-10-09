@@ -91,14 +91,21 @@ def pack_window(artifacts, separator, length):
 
 def windows(corpus, separator, length, start=0):
     """Every window of the corpus from `start`, consecutive and non-overlapping: the ball as a set of
-    windows, each a stretch of production. Training samples these in no order."""
+    windows, each a stretch of production. Training samples these in no order. The tail, the stretch
+    left when production ends before a window is full, is not a window (found 2026-10-09: it held
+    one artifact and set the rank every window reaches to one); it is dropped unless it is the only
+    one."""
     out, i = [], start
+    shortest = min((len(a.forms) + 1 for a in corpus.artifacts[start:]), default=1)  # the fewest tokens an artifact of this corpus takes
     while i < len(corpus):
         tokens, targets, used = pack_window(corpus.artifacts[i:], separator, length)
         if not used:
             break
-        out.append((tokens, targets, used))
         i += len(used)
+        room = length - sum(len(a.forms) + 1 for a in used)
+        full = i < len(corpus) or room < shortest  # cut by the length, or no artifact of this corpus could have fit
+        if full or not out:
+            out.append((tokens, targets, used))
     return out
 
 
