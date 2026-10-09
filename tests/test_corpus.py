@@ -88,4 +88,60 @@ class TestCorpusReaders(unittest.TestCase):
         self.assertEqual(len(control), whole)
         rows = probe_rows(model, ws, corpus, corpus.walks[0] + corpus.walks[1], 4)
         self.assertEqual(len(rows), sum(len(u) for _, _, u in ws))
-        self.assertTrue(all(y == 0.0 for _, y in rows))  # every training artifact's state is in the ball
+        self.assertTrue(all(y == 0.0 for _, y, _, _ in rows))  # every training artifact's state is in the ball
+
+
+class TestAuditReaders(unittest.TestCase):
+    """Readers added after Methuselah's audit of 2026-10-09 (findings 2, 3, 5), verified by Claude."""
+
+    def _setup(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.corpus import produce, windows
+        from cocoonml.schema import generate
+
+        tables = [generate(forms=3, cuts=2, nonterminals=2, resolution=4, seed=10 + i, graded=True) for i in range(2)]
+        rng = random.Random(1)
+        corpus = produce(tables, rng, Fraction(1, 4), Fraction(3, 4), Fraction(1, 4), 60, 1.0, 0.5)
+        ws = windows(corpus, 4, 16)
+        return tables, corpus, ws
+
+    def test_window_distances_one_per_window_from_forms_alone(self):
+        from cocoonml.corpus import window_distances
+
+        tables, corpus, ws = self._setup()
+        training = [a.forms for a in corpus.artifacts]
+        ds = window_distances(tables, ws, training)
+        self.assertEqual(len(ds), len(ws))
+        self.assertTrue(all(d is None or d >= 0.0 for d in ds))
+        # a shape that parses nothing in a window pins nothing: every window of unparseable strings reads None
+        nothing = window_distances(tables, [([9, 9, 4], [9, 4, 4], [type(corpus.artifacts[0])((9, 9), (0, 0), 0, 0)])], training)
+        self.assertEqual(nothing, [None])
+
+    def test_window_truth_distances_and_bins(self):
+        from cocoonml.corpus import bin_windows, window_truth_distances
+
+        tables, corpus, ws = self._setup()
+        ball = [corpus.walks[0][0], corpus.walks[1][0]]
+        truth = window_truth_distances(ws, corpus, ball)
+        self.assertEqual(len(truth), len(ws))
+        no_phase = window_truth_distances(ws, corpus, ball, phases=False)
+        self.assertEqual(len(no_phase), len(ws))
+        bins = bin_windows(ws, truth, 2)
+        self.assertEqual(sum(len(part) for _, part in bins), len(ws))
+        self.assertLessEqual(bins[0][0], bins[-1][0])
+        self.assertEqual(bin_windows(ws, [None] * len(ws), 2), [])
+
+    def test_probe_rows_carry_rank_and_window_index(self):
+        from cocoonml.array_attention import ArrayAttention
+        from cocoonml.corpus import probe_rows
+
+        tables, corpus, ws = self._setup()
+        model = ArrayAttention(vocab=5, width=3, length=16, seed=0, separator=4, layers=1)
+        rows = probe_rows(model, ws[:3], corpus, [corpus.walks[0][0]], 4)
+        self.assertEqual(len(rows), sum(len(used) for _, _, used in ws[:3]))
+        for vector, distance, rank, w in rows:
+            self.assertEqual(len(vector), 3)
+            self.assertGreaterEqual(distance, 0.0)
+            self.assertIn(w, (0, 1, 2))
+        self.assertEqual([r[2] for r in rows if r[3] == 0], list(range(len(ws[0][2]))))
