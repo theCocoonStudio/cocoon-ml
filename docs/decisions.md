@@ -61,12 +61,12 @@ A run is a reading of the complete system or it is not a run. The system is comp
 | the bound at one grain per node per step | read off (the grain) | as designed |
 | the mean-reverting pull within a radius | derived on the page | as designed |
 | the leaf: a form carrying an extension, a weight over the cuts | forced (the definition of a leaf meaning) | as designed since 2026-10-09 (`generate(..., graded=True)`; weights at the grid, one-hot the corner; a leaf's weights sum to one by a convention marked in 27) |
-| training data: the ball, every state the walk visits, unordered | forced (a corpus is unordered; order is one state) | **chosen**: the ordered stream (and, before it, the stationary table) |
-| training data: finite, artifacts the world produced and kept | forced (the definition of an artifact) | **chosen**: endless fresh draws from a distribution |
-| the window: artifacts across the tables and states in play, the assignment hidden | forced (a corpus window) | **chosen**: one table, one state per window |
-| the languages in play: several | forced (the world) | **chosen**: one table per cell |
-| the distance axis: the artifacts' estimate; the truth a check | forced (the reality design) | **chosen**: the generator's truth (decisions 9) |
-| the distance reference: the ball training reached | forced once training reaches a set | **chosen**: the origin table |
+| training data: the ball, every state the walk visits, unordered | forced (a corpus is unordered; order is one state) | as designed since 2026-10-09: `corpus.windows` are stretches of production, sampled in no order for training (the ordered `harness.stream` stays as the online variant) |
+| training data: finite, artifacts the world produced and kept | forced (the definition of an artifact) | as designed since 2026-10-09: `corpus.produce` makes a finite ordered corpus with provenance kept apart from the forms |
+| the window: artifacts across the tables and states in play, the assignment hidden | forced (a corpus window) | as designed since 2026-10-09: consecutive artifacts, states succeeding and tables mixing within a window; no extension token in the input (the label is gone; `corpus.scramble_order` is the control for the latent) |
+| the languages in play: several | forced (the world) | as designed since 2026-10-09: `produce(tables, ...)` with drawn switches between them |
+| the distance axis: the artifacts' estimate; the truth a check | forced (the reality design) | as designed since 2026-10-09: `corpus.estimated_distance` (shares a window pins against the shares the corpus pins) is the axis; `distance_from_ball` the check |
+| the distance reference: the ball training reached | forced once training reaches a set | as designed since 2026-10-09: the truth's distance is the least movement to any state of the training walks; the estimate is against the whole corpus |
 | the incidence axis: weight moving a grain between cuts | forced (no jumps) | as designed since 2026-10-09 (`remap` moves one grain of 1/ρ per leaf; still off unless Izzy turns it on) |
 | the drift source: real and constructed, the difference the residual from outside | forced (the comparison is the instrument) | **chosen**: constructed only (the real one needs hosts) |
 | the generator behind the constructed source | a strong seeded generator (conceded) | Mersenne Twister, mine (decisions 11) |
@@ -75,3 +75,4 @@ A run is a reading of the complete system or it is not a run. The system is comp
 | the readers: control, identification excess, entropy floors, n_eff, curves by rank | read off the definitions | as designed, each with its test |
 | the rule for numbers: two rounds, two replications | Izzy's | kept |
 30. **A leaf's weights sum to one.** The leaf's extension is normalised over the cuts (a gauge per leaf, like sisters per node). Alternative: unnormalised weights. Why: only ratios carry anything (the projective constraint), and one convention is needed for the count of leaf meanings (cuts × weight levels at the grid). Fails if: the extension's total has to carry something a ratio cannot (then the total is a separate reading).
+31. **The corpus's rates** (`corpus.produce`): the steps a table takes between artifacts and the switches between tables are Poisson counts around a mean (no clock in the index, Izzy); the next table is drawn uniformly among the others. The means are parameters to sweep, not constants. Alternative: a fixed count (a metronome, struck). Fails if: a corpus's switching has a structure a Poisson count cannot carry (then the rate becomes a reading of the source).
