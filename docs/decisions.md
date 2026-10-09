@@ -1,6 +1,6 @@
 # Implementation decisions Izzy did not choose
 
-Every choice in the apparatus that is mine, one line each, for oversight: what was decided, the alternative, why, and what would show it wrong. Izzy's choices (the design: form drifts and meaning holds; no jumps; the artifact a string; sisters sum to one; complex weights; relative counts on rationals; the remap knob off; the rule for numbers) are on the concept page and are not listed here. Added 2026-10-08 at Izzy's ask; every later decision goes here in the same commit that makes it.
+Every choice in the apparatus that is mine, one line each, for oversight: what was decided, the alternative, why, and what would show it wrong. Izzy's design, which is not a list of choices but of edges found and removed, each a forced direction (form drifts and meaning holds; no jumps; the artifact a string; sisters sum to one; complex weights; relative counts on rationals; the remap knob off; the rule for numbers) are on the concept page and are not listed here. Added 2026-10-08 at Izzy's ask; every later decision goes here in the same commit that makes it.
 
 ## Principles I applied (the fast read)
 
@@ -42,3 +42,35 @@ Every choice in the apparatus that is mine, one line each, for oversight: what w
 28. **Training drew every context from the stationary table; drift entered only at reading.** In `harness.run` and every sweep script, the training batches come from the undrifted table and `drifted` is used only for the readings. This is the design Izzy rejected on 2026-10-08 ("drift present in training; a large corpus carries it") and the regime in which their lodged prediction says the two predictions do not separate ("if the model is trained on deterministic data, there is no difference; the model only tracks the family"). So no sweep so far could bear on their prediction's antecedent. **Flagged, first in importance.** The fix: the training stream is produced along the index's walk up to a training radius; the readings at distances beyond it; the ensemble's numbers (tables, training radius) are Izzy's, the mechanism mine (in progress).
 29. **The training stream** (`harness.stream`, used by `runs/sweep6.py`): training contexts are drawn from a table that walks within a training radius around the origin, the number of steps between contexts drawn around `steps_per_context` (a Poisson count: no clock in the index, Izzy; a fixed count was a metronome I had put in); the held-out contexts for the plateau rule come from a walk of their own with the same radius; the readings are taken at radii below and above the training radius from the origin. Alternative: training on a fixed set of pre-drifted tables. Why: the reality design, the stream as artifacts over time. The two numbers, the training radius and the steps per context, are Izzy's; 0 reproduces the stationary training of sweeps 01 to 05.
 
+## The completeness list (2026-10-08, evening; Izzy: "there are no choices in a complete theory")
+
+A run is a reading of the complete system or it is not a run. The system is complete when every element is forced by the definitions or read off the thing under test and the third column is empty. Each row: the element, its status in the design, and the state of the code. Rows marked **chosen** in the code are the corners every sweep so far read; they are fixed before the next run, which is built once at the derived size on numpy and read once.
+
+| element | design | code today |
+| --- | --- | --- |
+| composition: one binary operation, null a leaf, remove | forced (currying; cuts) | as designed |
+| the artifact: a string, the tree inferred | forced (what is kept) | as designed |
+| sisters sum to one, a gauge per node | forced | as designed |
+| the carrier complex, frequency, cost and phase its projections | forced (the fork principle), with its disproof (no interference ever measured) | as designed |
+| relative counts on rationals, no logarithm inside | forced | as designed (Fraction) |
+| the alphabet: labels nothing, the count by the largest-count rule | read off | as designed |
+| the length | a swept variable | as designed |
+| weight resolution | read off the model (the mantissa) | as designed (float) |
+| the step a superposition, no jumps, the ends reflect | forced | as designed |
+| the step's direction: left alone, resolution falls | read off (languages simplify) | the lean's **value** (3/4) is **chosen**: read it off the source, or sweep it |
+| the bound at one grain per node per step | read off (the grain) | as designed |
+| the mean-reverting pull within a radius | derived on the page | as designed |
+| the leaf: a form carrying an extension, a weight over the cuts | forced (the definition of a leaf meaning) | **chosen**: one cut per leaf (the integer corner) |
+| training data: the ball, every state the walk visits, unordered | forced (a corpus is unordered; order is one state) | **chosen**: the ordered stream (and, before it, the stationary table) |
+| training data: finite, artifacts the world produced and kept | forced (the definition of an artifact) | **chosen**: endless fresh draws from a distribution |
+| the window: artifacts across the tables and states in play, the assignment hidden | forced (a corpus window) | **chosen**: one table, one state per window |
+| the languages in play: several | forced (the world) | **chosen**: one table per cell |
+| the distance axis: the artifacts' estimate; the truth a check | forced (the reality design) | **chosen**: the generator's truth (decisions 9) |
+| the distance reference: the ball training reached | forced once training reaches a set | **chosen**: the origin table |
+| the incidence axis: weight moving a grain between cuts | forced (no jumps) | **chosen**: the remap switches a cut whole (a jump) |
+| the drift source: real and constructed, the difference the residual from outside | forced (the comparison is the instrument) | **chosen**: constructed only (the real one needs hosts) |
+| the generator behind the constructed source | a strong seeded generator (conceded) | Mersenne Twister, mine (decisions 11) |
+| the model: attention at the derived width and layers | read off the counts (the match's rank, the suffix depth) | **chosen**: width 4, two layers, afforded (decisions 14) |
+| the budget: past the crossing | read off the counts | **chosen**: a plateau rule on held-out loss |
+| the readers: control, identification excess, entropy floors, n_eff, curves by rank | read off the definitions | as designed, each with its test |
+| the rule for numbers: two rounds, two replications | Izzy's | kept |
