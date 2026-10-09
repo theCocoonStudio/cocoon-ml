@@ -57,7 +57,7 @@ A run is a reading of the complete system or it is not a run. The system is comp
 | the length | a swept variable | as designed |
 | weight resolution | read off the model (the mantissa) | as designed (float) |
 | the step a superposition, no jumps, the ends reflect | forced | as designed |
-| the step's direction: left alone, resolution falls | read off (languages simplify) | the lean's **value** (3/4) is **chosen**: read it off the source, or sweep it |
+| the step's direction: left alone, resolution falls | read off (languages simplify) | the lean's value is an argument of `runs/sweep7.py` (swept, default 3/4 until the real source gives it) |
 | the bound at one grain per node per step | read off (the grain) | as designed |
 | the mean-reverting pull within a radius | derived on the page | as designed |
 | the leaf: a form carrying an extension, a weight over the cuts | forced (the definition of a leaf meaning) | as designed since 2026-10-09 (`generate(..., graded=True)`; weights at the grid, one-hot the corner; a leaf's weights sum to one by a convention marked in 27) |
@@ -70,7 +70,7 @@ A run is a reading of the complete system or it is not a run. The system is comp
 | the incidence axis: weight moving a grain between cuts | forced (no jumps) | as designed since 2026-10-09 (`remap` moves one grain of 1/ρ per leaf; still off unless Izzy turns it on) |
 | the drift source: real and constructed, the difference the residual from outside | forced (the comparison is the instrument) | **chosen**: constructed only (the real one needs hosts) |
 | the generator behind the constructed source | a strong seeded generator (conceded) | Mersenne Twister, mine (decisions 11) |
-| the model: attention at the derived width and layers | read off the counts (the match's rank, the suffix depth) | **chosen**: width 4, two layers, afforded (decisions 14) |
+| the model: attention at the derived width and layers | read off the counts (the match's rank, the suffix depth) | **chosen** until the port: width and layers are arguments of `sweep7.py`; the derived values need numpy to run (decisions 14) |
 | the budget: past the crossing | read off the counts | **chosen**: a plateau rule on held-out loss |
 | the readers: control, identification excess, entropy floors, n_eff, curves by rank | read off the definitions | as designed, each with its test |
 | the rule for numbers: two rounds, two replications | Izzy's | kept |
