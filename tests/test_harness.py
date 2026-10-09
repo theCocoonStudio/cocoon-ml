@@ -32,7 +32,7 @@ class TestMeaning(unittest.TestCase):
     def test_pack_meaning_puts_the_extension_at_the_separator(self):
         from cocoonml.harness import pack_meaning
 
-        tokens, targets = pack_meaning([((1, 2), (0, 1, 1)), ((3,), (1,))], separator=9, length=6, extension_base=10)
+        tokens, targets = pack_meaning([((1, 2), (1, 2)), ((3,), (0, 1))], separator=9, length=6, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 3, 9, 9])
         self.assertEqual(targets, [2, 9, 16, 9, 10, 9])
 
@@ -52,7 +52,7 @@ class TestRoundOneFixes(unittest.TestCase):
     def test_pack_meaning_drops_an_artifact_that_does_not_fit_whole(self):
         from cocoonml.harness import pack_meaning
 
-        tokens, targets = pack_meaning([((1, 2), (0, 1)), ((3, 4, 5), (1, 1, 1))], separator=9, length=5, extension_base=10)
+        tokens, targets = pack_meaning([((1, 2), (1, 1)), ((3, 4, 5), (0, 3))], separator=9, length=5, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 9, 9])
         self.assertEqual(targets, [2, 9, 13, 9, 9])
 
@@ -125,14 +125,14 @@ class TestPairsInTheInput(unittest.TestCase):
     def test_pack_pairs_puts_the_extension_after_the_separator_and_targets_it_at_the_separator(self):
         from cocoonml.harness import pack_pairs
 
-        tokens, targets = pack_pairs([((1, 2), (0, 1)), ((3,), (1,))], separator=9, length=8, extension_base=10)
+        tokens, targets = pack_pairs([((1, 2), (1, 1)), ((3,), (0, 1))], separator=9, length=8, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 13, 3, 9, 10, 9])
         self.assertEqual(targets, [2, 9, 13, 3, 9, 10, 9, 9])
 
     def test_pack_pairs_drops_an_artifact_whose_pair_does_not_fit(self):
         from cocoonml.harness import pack_pairs
 
-        tokens, _ = pack_pairs([((1, 2), (0, 1)), ((3, 4), (1, 1))], separator=9, length=7, extension_base=10)
+        tokens, _ = pack_pairs([((1, 2), (1, 1)), ((3, 4), (0, 2))], separator=9, length=7, extension_base=10)
         self.assertEqual(tokens, [1, 2, 9, 13, 9, 9, 9])
 
     def test_filled_with_pairs_counts_the_extension_slot_and_the_curves_read_the_separators(self):
@@ -220,16 +220,15 @@ class TestExtensionCode(unittest.TestCase):
             codes = {}
             for size in range(1, 6):
                 for cuts in combinations_with_replacement(range(cut_count), size):
-                    codes[cuts] = extension_code(cuts, cut_count)
-                    self.assertEqual(codes[cuts], extension_code(tuple(reversed(cuts)), cut_count))  # order-free
+                    vector = tuple(cuts.count(c) for c in range(cut_count))
+                    codes[cuts] = extension_code(vector, cut_count)
             self.assertEqual(len(set(codes.values())), len(codes))  # injective
             self.assertEqual(sorted(codes.values()), list(range(extension_vocabulary(cut_count, 5))))  # dense
 
     def test_the_sum_of_cuts_was_not_injective_and_the_code_is(self):
         from cocoonml.harness import extension_code
 
-        a, b = (0, 0, 1), (0, 0, 0, 0, 1)  # the two extensions sweep 05's token collapsed onto "sum 1"
-        self.assertEqual(sum(a), sum(b))
+        a, b = (2, 1), (4, 1)  # the two extensions sweep 05's token collapsed onto "sum 1": {0,0,1} and {0,0,0,0,1}
         self.assertNotEqual(extension_code(a, 2), extension_code(b, 2))
 
     def test_the_vocabulary_bounds_every_token_a_table_can_produce(self):
