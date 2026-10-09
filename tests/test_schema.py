@@ -29,7 +29,7 @@ class TestSchema(unittest.TestCase):
         for _ in range(20):
             forms, cuts = draw(self.table, rng)
             self.assertTrue(all(f != 0 for f in forms))
-            self.assertEqual(len(cuts) >= len(forms), True)
+            self.assertGreaterEqual(sum(cuts), len(forms))  # the extension's total is the leaf count, nulls included
 
     def test_every_drawn_string_has_at_least_one_derivation(self):
         rng = random.Random(2)
@@ -46,7 +46,7 @@ class TestSchema(unittest.TestCase):
         node.share = Fraction(1)
         forms, cuts = draw(table, rng)
         self.assertEqual(forms, ())
-        self.assertEqual(cuts, (0, 0))
+        self.assertEqual(cuts, (Fraction(2),))  # two null leaves, one cut: two units of weight on it
 
     def test_a_step_moves_shares_by_a_bounded_total_and_delta_reads_it(self):
         rng = random.Random(4)
@@ -487,8 +487,10 @@ class TestEntropyFloors(unittest.TestCase):
         table = self._table()
         joint = classical_joint(table)
         self.assertAlmostEqual(sum(joint.values()), 1.0)
-        self.assertAlmostEqual(joint[((1, 2), 0)], 0.5)
-        self.assertAlmostEqual(joint[((1, 3), 1)], 0.5)
+        by_string = {forms: (ext, p) for (forms, ext), p in joint.items()}
+        self.assertAlmostEqual(by_string[(1, 2)][1], 0.5)
+        self.assertAlmostEqual(by_string[(1, 3)][1], 0.5)
+        self.assertNotEqual(by_string[(1, 2)][0], by_string[(1, 3)][0])  # the extensions are vectors over the cuts, nulls counted
         self.assertAlmostEqual(entropy_floor_form(table), math.log(2))
         self.assertAlmostEqual(entropy_floor_meaning(table), 0.0)
 
@@ -531,7 +533,12 @@ class TestRemap(unittest.TestCase):
         self.assertEqual(cuts_of(table), [0, 1])
         moved, moves = remap(table, random.Random(0), 2)
         self.assertEqual(len(moves), 2)
-        self.assertEqual(incidence_delta(table, moved), Fraction(2, 6))  # six leaf slots (two are nonterminals), nulls included
+        self.assertEqual(incidence_delta(table, moved), Fraction(2, 6 * table.resolution))  # two grains of 1/ρ over six leaf slots (two are nonterminals), nulls included
+        for i, si, slot, source, target in moves:
+            leaf = (moved.nodes[i].sisters[si].first, moved.nodes[i].sisters[si].second)[slot]
+            self.assertIsNotNone(leaf.weights)  # a remapped leaf is graded
+            self.assertEqual(sum(leaf.weights), 1)
+            self.assertNotEqual(source, target)
         before, after = distribution(table), distribution(moved)
         self.assertEqual(set(before), set(after))
         for string in before:
@@ -545,10 +552,13 @@ class TestRemap(unittest.TestCase):
         table = self._table()
         with self.assertRaises(ValueError):
             remap(table, random.Random(0), 5)  # four spoken leaves
-        one_cut = self._table()
-        one_cut.nodes[1].sisters[1].first = Leaf(3, 0)
+        one_cut = generate(forms=2, cuts=1, nonterminals=1, resolution=4, seed=0)
         with self.assertRaises(ValueError):
             remap(one_cut, random.Random(0), 1)
+        unused_cut = self._table()
+        unused_cut.nodes[1].sisters[1].first = Leaf(3, 0)  # every leaf on cut 0, the second cut expressible but unseen
+        moved, moves = remap(unused_cut, random.Random(0), 1)  # a grain may move into the unseen cut
+        self.assertEqual(len(moves), 1)
 
 
 class TestIdentificationExcess(unittest.TestCase):
@@ -571,3 +581,57 @@ class TestIdentificationExcess(unittest.TestCase):
         node.share = Fraction(1)
         self.assertAlmostEqual(identification_excess(table, [(1,)] * 4)[0], 0.0)
         self.assertEqual(identification_excess(table, [])[0], None)
+
+
+class TestGradedLeaves(unittest.TestCase):
+    def test_a_graded_table_puts_a_grid_weight_over_the_cuts_on_every_leaf(self):
+        from cocoonml.schema import _is_nonterminal, leaf_weights
+
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=4, seed=7, graded=True)
+        for node in table.nodes:
+            for e in node.sisters:
+                for leaf in (e.first, e.second):
+                    if _is_nonterminal(leaf):
+                        continue
+                    weights = leaf_weights(leaf, table.cuts)
+                    self.assertEqual(sum(weights), 1)
+                    self.assertTrue(all((w * table.resolution).denominator == 1 for w in weights))
+                    self.assertEqual(leaf.cut, max(range(table.cuts), key=lambda c: (weights[c], -c)))
+
+    def test_a_one_hot_table_is_the_integer_corner_and_the_extension_counts_its_leaves(self):
+        from cocoonml.harness import extension_grain
+        from cocoonml.schema import _all_derivations
+
+        plain = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1)
+        graded = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1, graded=True)
+        self.assertEqual(extension_grain(plain), 1)
+        self.assertEqual(extension_grain(graded), 4)
+        for forms, ext, choices in _all_derivations(plain):
+            self.assertTrue(all(w.denominator == 1 for w in ext))
+        leaves = {forms: sum(ext) for forms, ext, _ in _all_derivations(graded)}
+        for forms, ext, _ in _all_derivations(graded):
+            self.assertEqual(sum(ext), leaves[forms])  # the extension's total is the leaf count, whatever the weights
+
+    def test_draw_gives_the_sum_of_the_leaves_vectors(self):
+        from cocoonml.schema import leaf_weights
+
+        table = generate(forms=1, cuts=2, nonterminals=1, resolution=4, seed=0, graded=True)
+        node = table.nodes[0]
+        a, b = Leaf(1, 0, (Fraction(3, 4), Fraction(1, 4))), Leaf(1, 1, (Fraction(0), Fraction(1)))
+        node.sisters[0].first, node.sisters[0].second = a, b
+        node.sisters[1].first, node.sisters[1].second = a, b
+        forms, ext = draw(table, random.Random(0))
+        self.assertEqual(forms, (1, 1))
+        self.assertEqual(ext, (Fraction(3, 4), Fraction(5, 4)))
+
+    def test_the_key_is_injective_over_a_graded_table_s_extensions_at_its_grain(self):
+        from cocoonml.harness import extension_code, extension_grain, extension_vocabulary
+        from cocoonml.schema import _all_derivations, max_extension_size
+
+        table = generate(forms=3, cuts=2, nonterminals=3, resolution=4, seed=3, graded=True)
+        grain = extension_grain(table)
+        exts = {ext for _, ext, _ in _all_derivations(table)}
+        keys = {ext: extension_code(ext, table.cuts, grain) for ext in exts}
+        self.assertEqual(len(set(keys.values())), len(exts))
+        bound = extension_vocabulary(table.cuts, max_extension_size(table), grain)
+        self.assertTrue(all(0 <= k < bound for k in keys.values()))
