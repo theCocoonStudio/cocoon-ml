@@ -14,7 +14,7 @@ Claude, 2026-10-09. The design of `runs/loop.py` (the self-adjusting runner), wr
 | ℓ | the suffix depth that identifies a string, plus one | each layer hands a position one more token of its string; the readout is the last (page, 1) |
 | L | at least 8 whole artifacts per window: L ≥ 8 · (mean string length + 1) | the readings are curves in k, the artifact rank; a rise and a plateau need ranks past the suffix depth (page, the predictions as they separate) |
 | cap | past the crossing: at least 4 × (2w² · b) / (bits per window), b = 3 bits per parameter (an import, marked), bits per window = whole · log₂(effective string count), in batches of 4 windows | page, 2: the match's description against what a window carries |
-| C | at least 10 × cap × 4 / whole artifacts, so a window is drawn at most ten times in training on average | the ball must be learned, not the corpus (decisions 21, 28) |
+| C | at least 0.4 · cap · ā artifacts, ā the mean number of artifacts a window holds, so that cap steps of four windows draw each window at most ten times on average (ten, a few passes, is an import, marked) | the ball must be learned, not the corpus (decisions 21, 28); the corpus is finite by design and its size is the amount the world produced |
 | η | 0.1 at the derived scale of initialisation | decisions 19; the scale, decisions 32 |
 
 ## The rows (applied in order; the first that holds fires)
