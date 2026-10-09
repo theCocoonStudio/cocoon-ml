@@ -131,3 +131,83 @@ def estimated_distance(table_shape, reading_forms, training_forms):
     if not pairs:
         return None
     return sum(abs(float(x) - float(y)) for x, y in pairs) / len(pairs)
+
+
+# --- Readers over corpus windows (the latent read on form) --------------------------------------
+# The extension never enters the input, so meaning is read where a language model's is: on the
+# forms. Three readers: the form loss by artifact rank within a window; the order control (the same
+# artifacts in a drawn order: what the model loses when the succession of states is broken is what
+# it was reading of the index); and the probe's rows (the attended vector at each artifact's
+# separator against the truth's distance of that artifact's state from the training ball).
+
+
+def position_losses(model, tokens, targets):
+    """-log p(target) at every position, as floats."""
+    logits, _ = model.forward(tokens)
+    out = []
+    for lg, t in zip(logits, targets):
+        m = max(x.value for x in lg)
+        total = sum(math.exp(x.value - m) for x in lg)
+        out.append(-(lg[t].value - m) + math.log(total))
+    return out
+
+
+def _by_rank(tokens, targets, losses, separator):
+    """Form losses grouped by artifact rank: positions that are separators, or whose target is a
+    separator (the end of an artifact), are not form predictions."""
+    sums, counts, rank = {}, {}, 0
+    for tok, t, loss in zip(tokens, targets, losses):
+        if tok == separator:
+            rank += 1
+            continue
+        if t == separator:
+            continue
+        sums[rank] = sums.get(rank, 0.0) + loss
+        counts[rank] = counts.get(rank, 0) + 1
+    return sums, counts
+
+
+def form_losses_by_rank(model, window_list, separator, whole=None):
+    """Mean form loss by artifact rank over the windows [(tokens, targets, used)]; ranks past
+    `whole` (the rank every window reaches) are dropped when given."""
+    sums, counts = {}, {}
+    for tokens, targets, _ in window_list:
+        s, c = _by_rank(tokens, targets, position_losses(model, tokens, targets), separator)
+        for r in s:
+            sums[r] = sums.get(r, 0.0) + s[r]
+            counts[r] = counts.get(r, 0) + c[r]
+    return [sums[r] / counts[r] for r in sorted(sums) if whole is None or r < whole]
+
+
+def order_control(model, window_list, separator, rng, whole=None):
+    """By rank: the form loss of the same artifacts in a drawn order minus the loss in the order
+    produced. Positive where the model read the succession of states; zero where it read only the
+    window's marginal."""
+    sums_o, counts_o, sums_s = {}, {}, {}
+    for tokens, targets, used in window_list:
+        s, c = _by_rank(tokens, targets, position_losses(model, tokens, targets), separator)
+        t2, g2, _ = pack_window(scramble_order(used, rng), separator, len(tokens))
+        s2, _ = _by_rank(t2, g2, position_losses(model, t2, g2), separator)
+        for r in s:
+            sums_o[r] = sums_o.get(r, 0.0) + s[r]
+            counts_o[r] = counts_o.get(r, 0) + c[r]
+            sums_s[r] = sums_s.get(r, 0.0) + s2.get(r, 0.0)
+    return [(sums_s[r] - sums_o[r]) / counts_o[r] for r in sorted(sums_o) if whole is None or r < whole]
+
+
+def probe_rows(model, window_list, corpus, ball, separator):
+    """Per artifact in the windows: (the attended vector at its separator, the truth's distance of
+    its state from `ball`). The x the probe is fitted on and the y it is asked to read."""
+    rows = []
+    for tokens, _, used in window_list:
+        attended = model.probe(tokens)
+        seps = [i for i, t in enumerate(tokens) if t == separator]
+        for a, i in zip(used, seps):
+            rows.append((attended[i], distance_from_ball(corpus.walks[a.table][a.state], ball)))
+    return rows
+
+
+def whole_rank(window_list):
+    """The number of whole artifacts every window holds: curves are read only at ranks every window
+    reaches (sweep 02 round one)."""
+    return min(len(used) for _, _, used in window_list) if window_list else 0
