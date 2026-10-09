@@ -167,3 +167,19 @@ class TestScale(unittest.TestCase):
         self.assertTrue(all(abs(w) <= 0.1 for w in small.flat_parameters()))
         self.assertNotEqual(small.flat_parameters(), default.flat_parameters())
         self.assertEqual(len(small.flat_parameters()), len(default.flat_parameters()))
+
+
+class TestDerivedScale(unittest.TestCase):
+    def test_the_derived_scale_reads_off_every_count(self):
+        import math
+        from cocoonml.array_attention import ArrayAttention
+
+        m = ArrayAttention(vocab=6, width=64, length=16, seed=0, separator=5, layers=4, scale="derived")
+        bound = lambda a: abs(a).max()
+        self.assertLessEqual(bound(m.embed), math.sqrt(3 / (3 * 64)) + 1e-12)  # three embeddings summed
+        self.assertLessEqual(bound(m.value), math.sqrt(3 / (4 * 64)) + 1e-12)  # four layers add
+        self.assertLessEqual(bound(m.query), math.sqrt(3 / 8) + 1e-12)  # √64 = 8 in the scores
+        self.assertLessEqual(bound(m.readout), math.sqrt(3 / 64) + 1e-12)
+        self.assertGreater(bound(m.query), bound(m.readout))  # the scores' scale is the loosest
+        plain = ArrayAttention(vocab=6, width=64, length=16, seed=0, separator=5, layers=4)
+        self.assertEqual(len(m.flat_parameters()), len(plain.flat_parameters()))
