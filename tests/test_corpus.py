@@ -40,7 +40,11 @@ class TestCorpus(unittest.TestCase):
             self.assertTrue(all(t <= 9 for t in tokens))  # forms and the separator only
             self.assertEqual(sum(len(a.forms) + 1 for a in used) <= 24, True)
             covered += len(used)
-        self.assertEqual(covered, len(corpus))  # every artifact is in exactly one window
+        # every artifact is in exactly one window, except the tail (the stretch left when production ends
+        # before a window is full), which is not a window (2026-10-09)
+        self.assertLessEqual(covered, len(corpus))
+        self.assertGreaterEqual(covered, len(corpus) - max(len(u) for _, _, u in ws))
+        self.assertEqual([a for _, _, u in ws for a in u], corpus.artifacts[:covered])
         mixed = [w for w in ws if len({a.table for a in w[2]}) > 1]
         self.assertGreater(len(mixed), 0)  # tables mix within a window
 
@@ -145,3 +149,18 @@ class TestAuditReaders(unittest.TestCase):
             self.assertGreaterEqual(distance, 0.0)
             self.assertIn(w, (0, 1, 2))
         self.assertEqual([r[2] for r in rows if r[3] == 0], list(range(len(ws[0][2]))))
+
+
+class TestWindowsDropTheTail(unittest.TestCase):
+    def test_the_tail_is_not_a_window_unless_it_is_the_only_one(self):
+        from cocoonml.corpus import Artifact, Corpus, windows
+
+        # strings of three forms, separator 4, length 8: two whole artifacts per window; eleven artifacts leave a tail of one
+        arts = [Artifact((1, 2, 3), (0, 0), 0, 0) for _ in range(11)]
+        ws = windows(Corpus(arts, [[None]]), 4, 8)
+        self.assertEqual([len(u) for _, _, u in ws], [2, 2, 2, 2, 2])
+        # ten artifacts: the last window is cut by the length exactly as production ends, so it is kept
+        ws = windows(Corpus(arts[:10], [[None]]), 4, 8)
+        self.assertEqual([len(u) for _, _, u in ws], [2, 2, 2, 2, 2])
+        # one artifact: the only window is kept
+        self.assertEqual(len(windows(Corpus(arts[:1], [[None]]), 4, 8)), 1)
