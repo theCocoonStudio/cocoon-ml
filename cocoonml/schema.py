@@ -26,7 +26,19 @@ import random
 @dataclass(frozen=True)
 class Leaf:
     form: int  # 0 is the empty form
-    cut: int
+    cut: int  # the cut carrying most of the leaf's weight (all of it when `weights` is None)
+    weights: tuple = None  # the leaf's extension: a weight per cut index, summing to one at the grid; None = one-hot at `cut`
+
+
+def leaf_weights(leaf, cut_count):
+    """The leaf's extension as a vector over the cuts: its `weights` if graded, else one at `cut`."""
+    if leaf.weights is not None:
+        return tuple(leaf.weights)
+    return tuple(Fraction(int(c == leaf.cut)) for c in range(cut_count))
+
+
+def vec_add(a, b):
+    return tuple(x + y for x, y in zip(a, b))
 
 
 @dataclass
@@ -73,10 +85,12 @@ def _quantise(x, resolution):
     return Fraction(round(x * resolution), resolution)
 
 
-def generate(forms, cuts, nonterminals, resolution, seed):
+def generate(forms, cuts, nonterminals, resolution, seed, graded=False):
     """A table realised from counts: `forms` non-empty forms (plus the empty one), `cuts` cuts,
     `nonterminals` nodes. Nonterminal i expands only into nonterminals > i or leaves, so every
-    draw terminates. The last nonterminal expands only into leaves."""
+    draw terminates. The last nonterminal expands only into leaves. With `graded`, a leaf carries
+    an extension, a weight over the cuts at the grid (resolution grains spread over the cuts);
+    without it a leaf carries one cut at full weight, the integer corner the sweeps up to 05 ran."""
     if resolution < 2:
         raise ValueError("resolution must be at least 2: a ratio needs a value strictly between its ends")
     rng = random.Random(seed)
@@ -85,7 +99,14 @@ def generate(forms, cuts, nonterminals, resolution, seed):
         deeper = [j for j in range(i + 1, nonterminals)]
         if deeper and rng.random() < Fraction(1, 2):
             return rng.choice(deeper)
-        return Leaf(rng.randrange(0, forms + 1), rng.randrange(0, cuts))
+        form = rng.randrange(0, forms + 1)
+        if not graded:
+            return Leaf(form, rng.randrange(0, cuts))
+        grains = [0] * cuts
+        for _ in range(resolution):
+            grains[rng.randrange(0, cuts)] += 1
+        weights = tuple(Fraction(g, resolution) for g in grains)
+        return Leaf(form, max(range(cuts), key=lambda c: (weights[c], -c)), weights)
 
     def ratio():
         return Fraction(rng.randrange(1, resolution), resolution)
@@ -98,15 +119,17 @@ def generate(forms, cuts, nonterminals, resolution, seed):
 
 
 def draw(table, rng, start=0):
-    """One artifact: the string of non-empty forms, and the extension it carried (the sum of cuts).
-    Sisters are drawn by their squared moduli; order by the order ratio. Returns (forms, cuts)."""
-    forms, cuts = [], []
+    """One artifact: the string of non-empty forms, and the extension it carried: the sum of its
+    leaves' weight vectors over the cuts (a count per cut when the leaves are one-hot). Sisters are
+    drawn by their squared moduli; order by the order ratio. Returns (forms, extension)."""
+    forms, ext = [], [Fraction(0)] * table.cuts
 
     def walk(symbol):
         if not _is_nonterminal(symbol):
             if symbol.form != 0:
                 forms.append(symbol.form)
-            cuts.append(symbol.cut)
+            for c, w in enumerate(leaf_weights(symbol, table.cuts)):
+                ext[c] += w
             return
         node = table.nodes[symbol]
         expansion = node.sisters[0] if rng.random() < node.share else node.sisters[1]
@@ -117,7 +140,7 @@ def draw(table, rng, start=0):
         walk(second)
 
     walk(start)
-    return tuple(forms), tuple(cuts)
+    return tuple(forms), tuple(ext)
 
 
 def derivations(table, string, start=0, _memo=None):
@@ -247,10 +270,11 @@ def _amplitude(table, choices):
 
 
 def _all_derivations(table, symbol=0):
-    """Every (string, cuts, choices) the symbol can produce; finite because the grammar is acyclic."""
+    """Every (string, extension, choices) the symbol can produce, the extension the sum of the
+    leaves' weight vectors; finite because the grammar is acyclic."""
     if not _is_nonterminal(symbol):
         forms = () if symbol.form == 0 else (symbol.form,)
-        return [(forms, (symbol.cut,), ())]
+        return [(forms, leaf_weights(symbol, table.cuts), ())]
     node = table.nodes[symbol]
     out = []
     for si, expansion in enumerate(node.sisters):
@@ -260,7 +284,7 @@ def _all_derivations(table, symbol=0):
             for fa, ca, da in left:
                 for fb, cb, db in right:
                     a, b = ((fa, ca, da), (fb, cb, db)) if oi == 0 else ((fb, cb, db), (fa, ca, da))
-                    out.append((a[0] + b[0], a[1] + b[1], ((symbol, si, oi),) + a[2] + b[2]))
+                    out.append((a[0] + b[0], vec_add(a[1], b[1]), ((symbol, si, oi),) + a[2] + b[2]))
     return out
 
 
@@ -345,12 +369,13 @@ def weighted_extension(table, string):
     summed amplitudes of the derivations of `string` that carry it, normalised over cuts present.
     With one derivation this is the plain multiset of its cuts, each at weight one."""
     sums = {}
-    for forms, cuts, choices in _all_derivations(table):
+    for forms, ext, choices in _all_derivations(table):
         if forms != tuple(string):
             continue
         a = _amplitude(table, choices)
-        for c in set(cuts):
-            sums[c] = sums.get(c, 0j) + a * cuts.count(c)
+        for c, w in enumerate(ext):
+            if w:
+                sums[c] = sums.get(c, 0j) + a * float(w)
     weights = {c: abs(a) ** 2 for c, a in sums.items()}
     total = sum(weights.values())
     return {c: w / total for c, w in weights.items()} if total > 0 else weights
@@ -520,14 +545,14 @@ def classical_joint(table):
     """{(string, extension): probability} under the classical draw: shares and orders as
     probabilities, phases absent."""
     joint = {}
-    for forms, cuts, choices in _all_derivations(table):
+    for forms, ext, choices in _all_derivations(table):
         p = 1.0
         for node_index, si, oi in choices:
             node = table.nodes[node_index]
             p *= float(node.share) if si == 0 else 1.0 - float(node.share)
             o = float(node.sisters[si].order)
             p *= o if oi == 0 else 1.0 - o
-        key = (forms, sum(cuts))
+        key = (forms, ext)
         joint[key] = joint.get(key, 0.0) + p
     return joint
 
@@ -571,17 +596,26 @@ def entropy_floor_meaning(table):
 
 
 def cuts_of(table):
-    """The cuts the table's leaves use, sorted."""
-    return sorted({leaf.cut for node in table.nodes for e in node.sisters for leaf in (e.first, e.second) if not _is_nonterminal(leaf)})
+    """The cuts the table's leaves put weight on, sorted."""
+    used = set()
+    for node in table.nodes:
+        for e in node.sisters:
+            for leaf in (e.first, e.second):
+                if not _is_nonterminal(leaf):
+                    used.update(c for c, w in enumerate(leaf_weights(leaf, table.cuts)) if w > 0)
+    return sorted(used)
 
 
 def remap(table, rng, count):
-    """A new table with `count` distinct spoken leaves (form not empty) given another of the
-    table's cuts. Returns (table, moves), a move being (node, sister, slot, old cut, new cut).
-    Refuses a table with fewer than two cuts or fewer spoken leaves than `count`."""
-    cuts = cuts_of(table)
-    if len(cuts) < 2:
+    """A step on the incidence: on `count` distinct spoken leaves (form not empty), one grain of
+    weight (1/resolution) moves from a cut the leaf carries to another of the table's cuts, so the
+    extension walks by grains and never jumps (until 2026-10-09 the whole cut switched). Shares and
+    orders are untouched, so the strings are unchanged and only the extensions move. Returns
+    (table, moves), a move being (node, sister, slot, from cut, to cut). Refuses a table with fewer
+    than two cuts or fewer spoken leaves than `count`."""
+    if table.cuts < 2:
         raise ValueError("remap needs a table with at least two cuts")
+    grain = Fraction(1, table.resolution)
     new = table.copy()
     spoken = [
         (i, si, slot)
@@ -596,28 +630,36 @@ def remap(table, rng, count):
     for i, si, slot in rng.sample(spoken, count):
         e = new.nodes[i].sisters[si]
         leaf = e.first if slot == 0 else e.second
-        new_cut = rng.choice([c for c in cuts if c != leaf.cut])
-        moved = Leaf(leaf.form, new_cut)
+        weights = list(leaf_weights(leaf, new.cuts))
+        source = rng.choice([c for c, w in enumerate(weights) if w >= grain])
+        target = rng.choice([c for c in range(new.cuts) if c != source])
+        weights[source] -= grain
+        weights[target] += grain
+        weights = tuple(weights)
+        moved = Leaf(leaf.form, max(range(new.cuts), key=lambda c: (weights[c], -c)), weights)
         if slot == 0:
             e.first = moved
         else:
             e.second = moved
-        moves.append((i, si, slot, leaf.cut, new_cut))
+        moves.append((i, si, slot, source, target))
     return new, moves
 
 
 def incidence_delta(a, b):
-    """The fraction of leaf slots whose cut differs between two tables of one shape: a ratio of
-    counts, the I_Δ of the count read off the tables."""
-    moved = total = 0
+    """The weight that moved between cuts across the leaves of two tables of one shape, as a
+    fraction of the leaves (half the L1 distance of the weight vectors, summed, over the leaf
+    count): a ratio of counts, the I_Δ of the count read off the tables. One is a whole leaf's
+    weight on another cut; with one-hot leaves it is the fraction of leaves whose cut differs."""
+    moved, total = Fraction(0), 0
     for na, nb in zip(a.nodes, b.nodes):
         for ea, eb in zip(na.sisters, nb.sisters):
             for la, lb in ((ea.first, eb.first), (ea.second, eb.second)):
                 if _is_nonterminal(la):
                     continue
                 total += 1
-                moved += int(la.cut != lb.cut)
-    return Fraction(moved, total) if total else Fraction(0)
+                wa, wb = leaf_weights(la, a.cuts), leaf_weights(lb, b.cuts)
+                moved += sum(abs(x - y) for x, y in zip(wa, wb)) / 2
+    return moved / total if total else Fraction(0)
 
 
 # --- The identification excess (sweep 04 round one, item 4) --------------------------------------
@@ -649,4 +691,4 @@ def identification_excess(table, artifacts):
 def max_extension_size(table):
     """The most cuts any derivation of the table carries: the largest extension, which bounds the
     extension vocabulary (`harness.extension_vocabulary`)."""
-    return max(len(cuts) for _, cuts, _ in _all_derivations(table))
+    return max(int(sum(ext)) for _, ext, _ in _all_derivations(table))

@@ -10,7 +10,7 @@ import json, random, sys, time
 from fractions import Fraction
 
 from cocoonml.attention import Attention
-from cocoonml.harness import contexts_meaning, drifted, filled, form_loss_by_rank, scramble_extensions, train_until_plateau, stream, extension_vocabulary
+from cocoonml.harness import extension_grain, contexts_meaning, drifted, filled, form_loss_by_rank, scramble_extensions, train_until_plateau, stream, extension_vocabulary
 from cocoonml.probe import fit, r_squared
 from cocoonml.schema import delta_magnitude, entropy_floor_form, entropy_floor_meaning, generate, identification_error, identification_excess, incidence_delta, n_eff, remap, max_extension_size
 
@@ -103,7 +103,7 @@ t0 = time.time()
 table = generate(forms=forms, cuts=2, nonterminals=nts, resolution=res, seed=tseed)
 bound = Fraction(nts, 2 * res)
 rng = random.Random(100 * tseed + mseed)
-model = Attention(vocab=BASE + extension_vocabulary(2, max_extension_size(table)), width=width, length=length, seed=mseed, separator=SEP, layers=layers)
+model = Attention(vocab=BASE + extension_vocabulary(2, max_extension_size(table), extension_grain(table)), width=width, length=length, seed=mseed, separator=SEP, layers=layers)
 train_radius = Fraction(TRAIN_RADIUS, res) if TRAIN_RADIUS > 0 else None
 steps_per_context = STEPS_PER_CONTEXT if TRAIN_RADIUS > 0 else 0
 held_stream = stream(table, random.Random(999 + tseed), bound, LEAN, train_radius, SEP, length, BASE, pairs=True, steps_per_context=steps_per_context)
