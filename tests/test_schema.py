@@ -84,12 +84,18 @@ class TestSchema(unittest.TestCase):
         node.sisters[1].first, node.sisters[1].second = Leaf(2, 0), Leaf(1, 0)
         centre = table.copy()
         centre.nodes[0].share = Fraction(1, 2)
+        # since 2026-10-09 one ratio per node moves per step, drawn uniformly, so the share moves in
+        # a third of the steps; whenever it moves, the move is the deterministic one
         node.share = Fraction(0)  # sister 0 removed
-        moved = step(table, random.Random(0), bound=Fraction(1), lean=Fraction(0), centre=centre, radius=Fraction(1, 4))
-        self.assertEqual(moved.nodes[0].share, Fraction(1, 8))  # displacement 1/2 over radius 1/4: the pull is certain
+        moved_shares = [step(table, random.Random(seed), bound=Fraction(1), lean=Fraction(0), centre=centre, radius=Fraction(1, 4)).nodes[0].share for seed in range(30)]
+        changed = [s for s in moved_shares if s != Fraction(0)]
+        self.assertGreater(len(changed), 0)
+        self.assertTrue(all(s == Fraction(1, 8) for s in changed))  # displacement 1/2 over radius 1/4: the pull is certain
         node.share = Fraction(1)
-        moved = step(table, random.Random(0), bound=Fraction(1), lean=Fraction(1))
-        self.assertEqual(moved.nodes[0].share, Fraction(7, 8))  # lean forces +1 toward the null sister; past 1 reflects
+        moved_shares = [step(table, random.Random(seed), bound=Fraction(1), lean=Fraction(1)).nodes[0].share for seed in range(30)]
+        changed = [s for s in moved_shares if s != Fraction(1)]
+        self.assertGreater(len(changed), 0)
+        self.assertTrue(all(s == Fraction(7, 8) for s in changed))  # lean forces +1 toward the null sister; past 1 reflects
 
     def test_the_lean_moves_share_toward_the_null_sister(self):
         table = generate(forms=2, cuts=1, nonterminals=1, resolution=8, seed=5)
@@ -635,3 +641,55 @@ class TestGradedLeaves(unittest.TestCase):
         self.assertEqual(len(set(keys.values())), len(exts))
         bound = extension_vocabulary(table.cuts, max_extension_size(table), grain)
         self.assertTrue(all(0 <= k < bound for k in keys.values()))
+
+
+class TestAuditFixes(unittest.TestCase):
+    """Methuselah's audit of 2026-10-09, findings 1, 4 and 6, verified by Claude."""
+
+    def test_a_step_moves_at_most_one_ratio_per_node_and_its_expected_total_is_the_bound(self):
+        import random
+        from fractions import Fraction
+        from cocoonml.schema import generate, step
+
+        table = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1, graded=True)
+        rng = random.Random(0)
+        bound = Fraction(3, 8)
+        current, moved_total, steps = table, Fraction(0), 400
+        for _ in range(steps):
+            nxt = step(current, rng, bound, Fraction(3, 4))
+            for a, b in zip(current.nodes, nxt.nodes):
+                changes = int(a.share != b.share) + sum(int(x.order != y.order) for x, y in zip(a.sisters, b.sisters))
+                self.assertLessEqual(changes, 1)
+                moved_total += abs(a.share - b.share) + sum(abs(x.order - y.order) for x, y in zip(a.sisters, b.sisters))
+            current = nxt
+        per_step = moved_total / steps
+        self.assertLess(abs(float(per_step) - float(bound)), 0.08)  # the mean move per step is the bound, within sampling and the pull at the ends
+
+    def test_delta_magnitude_without_phases_ignores_a_phase_move(self):
+        from fractions import Fraction
+        from cocoonml.schema import delta_magnitude, generate
+
+        a = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=1)
+        b = a.copy()
+        b.nodes[0].phase = Fraction(1, 4)
+        self.assertGreater(delta_magnitude(a, b), 0.0)
+        self.assertEqual(delta_magnitude(a, b, phases=False), 0.0)
+        b.nodes[1].share += Fraction(1, 4)
+        self.assertGreater(delta_magnitude(a, b, phases=False), 0.0)
+
+    def test_remap_may_move_weight_into_a_cut_no_leaf_uses(self):
+        """The out-of-family move: a grain into a cut index the table's leaves never used (the
+        audit read the docstring as the cuts in use; the index range is the design)."""
+        import random
+        from cocoonml.schema import Leaf, Node, Expansion, Table, cuts_of, remap
+        from fractions import Fraction
+
+        leaves = [Leaf(1, 0, (Fraction(1), Fraction(0), Fraction(0))), Leaf(2, 0, (Fraction(1), Fraction(0), Fraction(0)))]
+        node = Node(sisters=(Expansion(leaves[0], leaves[1], Fraction(1, 2)), Expansion(leaves[1], leaves[0], Fraction(1, 2))), share=Fraction(1, 2), phase=Fraction(0))
+        table = Table(nodes=[node], resolution=4, cuts=3)
+        self.assertEqual(cuts_of(table), [0])
+        targets = set()
+        for seed in range(30):
+            _, moves = remap(table, random.Random(seed), 1)
+            targets.update(t for _, _, _, _, t in moves)
+        self.assertTrue(targets <= {1, 2} and len(targets) == 2)
