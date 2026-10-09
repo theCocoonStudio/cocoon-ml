@@ -18,7 +18,7 @@ import json, math, random, sys, time
 from fractions import Fraction
 
 from cocoonml.array_attention import ArrayAttention
-from cocoonml.corpus import bin_windows, form_losses_by_rank, form_losses_by_rank_with_error, order_control, probe_rows, produce, whole_rank, window_distances, window_truth_distances, windows
+from cocoonml.corpus import Ball, bin_windows, form_losses_by_rank, form_losses_by_rank_with_error, order_control, probe_rows, produce, whole_rank, window_distances, window_truth_distances, windows
 from cocoonml.harness import train_until_plateau
 from cocoonml.probe import fit, r_squared
 from cocoonml.schema import generate
@@ -48,10 +48,10 @@ whole = whole_rank(ws)
 held = produce(tables, random.Random(seed + 999), bound, LEAN, train_radius, max(16, corpus_size // 4), steps_mean, switch_mean)
 hws = windows(held, SEP, length)
 scale = math.sqrt(3.0 / width)
-model = ArrayAttention(vocab=forms + 2, width=width, length=length, seed=seed, separator=SEP, layers=layers, scale=scale)
+model = ArrayAttention(vocab=forms + 2, width=width, length=length, seed=seed, separator=SEP, layers=layers, scale="derived")  # the initialisation that reads off every count (decisions 41)
 evaluate = lambda: sum(model.loss(t, g) for t, g, _ in hws[:16]) / len(hws[:16])
 losses, evaluations = train_until_plateau(model, lambda: [(t, g) for t, g, _ in rng.sample(ws, min(4, len(ws)))], LR, window=50, tolerance=0.01, cap=cap, evaluate=evaluate, patience=PATIENCE, minimum=MINIMUM)
-ball = [state for walk in corpus.walks for state in walk]
+ball = Ball(state for walk in corpus.walks for state in walk)  # distinct states, distances cached (the readers' cost, 2026-10-09)
 training_forms = [a.forms for a in corpus.artifacts]  # every training string, no provenance: the reader's side
 
 
@@ -103,7 +103,7 @@ def probe(rows, target):
 
 # the probe rows carry a window index per reading; offset them so windows of different readings never share an index
 print(json.dumps({
-    "run": name, "args": sys.argv[1:], "seconds": round(time.time() - t0, 1), "tables": n_tables, "layers": layers, "width": width, "scale": scale, "lr": LR,
+    "run": name, "args": sys.argv[1:], "seconds": round(time.time() - t0, 1), "tables": n_tables, "layers": layers, "width": width, "scale": "derived", "lr": LR, "ball_states": len(ball),
     "train_steps": len(losses), "hit_cap": len(losses) >= cap, "diverged": not math.isfinite(losses[-1]), "evaluations": evaluations, "train_first": losses[0], "train_last": losses[-1],
     "corpus_artifacts": len(corpus), "corpus_windows": len(ws), "whole": whole, "same": same, "held": held_reading, "points": points,
     "probe_r2_truth_distance": probe(rows, 1), "probe_r2_rank": probe(rows, 2),

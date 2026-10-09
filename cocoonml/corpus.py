@@ -118,10 +118,62 @@ def scramble_order(window_artifacts, rng):
     return shuffled
 
 
+def _signature(table):
+    """A hashable key of a table's values: per node the share, the phase and the orders."""
+    return tuple((n.share, n.phase, tuple(e.order for e in n.sisters)) for n in table.nodes)
+
+
+class Ball:
+    """The set of states the training walks visited, held as arrays so a distance is one vectorised
+    minimum, and answered once per state. Found 2026-10-09: with the ball as a Python list of the
+    42 000 states of a 42 000-artifact corpus, the truth distance per artifact was a Python minimum
+    over all of them for every artifact of every reading, and two cells spent hours in the readers
+    against twelve minutes of training; the phases jitter every step, so the states rarely repeat
+    and deduplication alone did nothing."""
+
+    def __init__(self, states):
+        import numpy as np
+
+        distinct = {}
+        for state in states:
+            distinct.setdefault(_signature(state), state)
+        self.states = list(distinct.values())
+        self._cache = {}
+        if self.states:
+            self._ratios = np.array([[float(x) for n in t.nodes for x in (n.share, *(e.order for e in n.sisters))] for t in self.states])
+            self._phases = np.array([[float(n.phase) for n in t.nodes] for t in self.states])
+            first = self.states[0]
+            self._entries_no_phase = sum(1 + len(n.sisters) for n in first.nodes)
+            self._entries = self._entries_no_phase + len(first.nodes)
+
+    def __len__(self):
+        return len(self.states)
+
+    def __iter__(self):
+        return iter(self.states)
+
+    def distance(self, state_table, phases=True):
+        """delta_magnitude's least value over the states, exactly, in one array operation."""
+        import numpy as np
+
+        key = (_signature(state_table), phases)
+        if key not in self._cache:
+            ratios = np.array([float(x) for n in state_table.nodes for x in (n.share, *(e.order for e in n.sisters))])
+            moved = np.abs(self._ratios - ratios).sum(axis=1)
+            if phases:
+                d = np.abs(self._phases - np.array([float(n.phase) for n in state_table.nodes]))
+                moved = moved + np.minimum(d, 1.0 - d).sum(axis=1)
+            self._cache[key] = float(moved.min() / (self._entries if phases else self._entries_no_phase))
+        return self._cache[key]
+
+
 def distance_from_ball(state_table, ball, phases=True):
     """The truth's distance of a table from a set of tables (the ball training reached): the least
     movement to any of them. A check on the reader's axis, never the axis itself. `phases` False
-    leaves phase movement out, which no classical artifact carries (schema.delta_magnitude)."""
+    leaves phase movement out, which no classical artifact carries (schema.delta_magnitude). `ball`
+    is a Ball (cached, deduplicated) or any iterable of tables."""
+    if isinstance(ball, Ball):
+        return ball.distance(state_table, phases)
     return min(delta_magnitude(state_table, b, phases) for b in ball)
 
 
