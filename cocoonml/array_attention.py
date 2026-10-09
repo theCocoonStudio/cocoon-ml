@@ -7,6 +7,7 @@ every gradient below is the derivative written out, checked against the scalar i
 tests/test_array_attention.py.
 """
 
+import math
 import random
 
 import numpy as np
@@ -36,16 +37,30 @@ class ArrayAttention:
         standard deviation near 20 and the softmax is saturated at initialisation)."""
         rng = random.Random(seed)
         self.vocab, self.width, self.length = vocab, width, length
-        self.embed = _matrix(vocab, width, rng, scale)
-        self.position = _matrix(length, width, rng, scale)
-        self.query = _matrix(width, width, rng, scale)
-        self.key = _matrix(width, width, rng, scale)
-        self.value = _matrix(width, width, rng, scale)
-        self.readout = _matrix(vocab, width, rng, scale)
+        if scale == "derived":
+            # The scale that reads off every count of the model (2026-10-09, after the nine-layer
+            # overflow and Izzy's "look for your own choices"): a uniform ±s entry has variance s²/3.
+            # Embeddings: three are summed, so each at variance 1/(3w) and the stream starts at 1/w.
+            # Queries and keys: the scores sum w products with no division, so entries at variance
+            # 1/√w give scores of variance one. Values: ℓ layers add to the stream, so entries at
+            # variance 1/(ℓw) keep the stream within a factor of e of its start. Readout: 1/w.
+            embeddings = 3 if separator is not None else 2
+            s_embed = math.sqrt(3.0 / (embeddings * width))
+            s_qk = math.sqrt(3.0 / math.sqrt(width))
+            s_value = math.sqrt(3.0 / (layers * width))
+            s_read = math.sqrt(3.0 / width)
+        else:
+            s_embed = s_qk = s_value = s_read = scale
+        self.embed = _matrix(vocab, width, rng, s_embed)
+        self.position = _matrix(length, width, rng, s_embed)
+        self.query = _matrix(width, width, rng, s_qk)
+        self.key = _matrix(width, width, rng, s_qk)
+        self.value = _matrix(width, width, rng, s_value)
+        self.readout = _matrix(vocab, width, rng, s_read)
         self.separator = separator
-        self.within = _matrix(length, width, rng, scale) if separator is not None else None
+        self.within = _matrix(length, width, rng, s_embed) if separator is not None else None
         self.layers = layers
-        self.more = [tuple(_matrix(width, width, rng, scale) for _ in range(3)) for _ in range(layers - 1)]
+        self.more = [tuple(_matrix(width, width, rng, s) for s in (s_qk, s_qk, s_value)) for _ in range(layers - 1)]
         self.grads = None
 
     # ----- parameters -----
