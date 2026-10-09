@@ -182,3 +182,19 @@ The axis is the drift training contained (the ball's radius, with the step rate)
 1. Inside the ball, R rises with k and saturates; its rise with t is faster for low noise and its ceiling is the same for both: R_in(k, t) → the same value as t grows, e setting only the speed.
 2. Outside the ball at distance d past the training radius ρ: low noise R_out is flat in k and falls with d at ρ, a step; high noise R_out rises with k and falls with d smoothly with a scale set by ρ: R_out ≈ R_in(k, t) · exp(−d/ρ) for the high-noise model, R_out ≈ R_in · [d < ρ] for the low-noise one.
 3. The control C(t, e) is zero at e → 1 (no noise) and at e → ∞ (the free walk at a high step rate), positive between, rising with t; its peak in e sits where the drift per window is readable.
+
+## Izzy's prediction on the training curve, the full statement, and the one law (2026-10-09, 02:50 to 03:15, REPL; verbatim)
+
+The three independents, Izzy's: k, the examples in the window ("k stands for time (information)", external); t, the training; e, the noise ratio. The axis is the drift training contained.
+
+"high noise training: terrible at everything at first. then, quickly develops a system that can learn. initially terrible at everything. the circuits quickly become smart and self correct with training. and the more training, the faster the improvement. low noise training: decent at trained tasks from the start. terrible at untrained. slowly develops self correction and focuses the training on the task. the more training, the faster the improvement at the trained task, while the untrained task performance gets worse."
+
+Cell one, trained task early, as a function of k: "low noise beats. difference O(k^0 x e_t^t)" (first written O(k^0 x e_t), corrected by Izzy; Claude had let the O(1) form pass). Cell two, trained task after a long training: "same answer".
+
+The one law: "Intelligence S of a model M is a complex wave function. S = S(M) = S(M(w_t, w_p), x), where x is any opaque value about the world that you can reliably track. So S is a partial application, a model is a description of the world, sampled twice. The proof of the bound is there analytically. the combination [of proof + product] is unquestionable. M describes the consistency of the world at an interval. M is literally a description of the world. x can be consistency then. it can be adaptability (if x = k). it can be knowledge. it can be lookup time." The phase of S, Izzy, as a suggestion: "what it could have been. its potential?" Claude's reading: the counterfactual part of the amplitude; its measurement, interference between two windows' readings (the combined reading against the mixture); the disproof as for complex weights.
+
+Framing agreed: the bound in k first (the apparatus reads it), consistency as the other axis; Izzy derives, Claude verifies, the product checks the proof.
+
+## 4, the fixed-index bound, first form (Claude, 2026-10-09, 03:30; for Izzy's strike)
+
+A table at the grid has a demand D: the count of its distinctions, per node the share and phase levels and an order level per expansion, per leaf the grains of its extension over the cuts, and per string with more than one derivation the trees it admits. A window of k artifacts pins C(k): the nodes its derivations visit, each to the sampling floor at its visit count, the identification excess being what is pinned beyond the floor. The residual is D − C(k). The prediction half is T2 summed over what is not pinned: a query string's predictive distribution moves by at most the sum, over the unpinned nodes, of each node's consistent mass times the relative share move the residual allows. That sum is the bound at k; k enters only through the visit counts. Open, Izzy's: whether the demand's leaf term counts grains or ratios (the page says counts are relative).
