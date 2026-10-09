@@ -290,3 +290,21 @@ class TestStream(unittest.TestCase):
         draws = [_poisson(rng, 1) for _ in range(4000)]
         self.assertGreater(len(set(draws)), 2)  # not always one
         self.assertAlmostEqual(sum(draws) / len(draws), 1.0, delta=0.08)
+
+
+class TestPlateauStopsOnDivergence(unittest.TestCase):
+    def test_a_non_finite_loss_ends_training_at_once(self):
+        from cocoonml.harness import train_until_plateau
+
+        class Diverging:
+            def __init__(self):
+                self.calls = 0
+
+            def train_step(self, batch, lr):
+                self.calls += 1
+                return 1.0 if self.calls < 3 else float("nan")
+
+        model = Diverging()
+        losses, evaluations = train_until_plateau(model, lambda: [], 0.1, window=2, cap=50)
+        self.assertEqual(len(losses), 3)
+        self.assertNotEqual(losses[-1], losses[-1])  # NaN
