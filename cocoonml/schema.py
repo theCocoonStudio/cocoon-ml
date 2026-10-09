@@ -210,12 +210,20 @@ def step(table, rng, bound, lean, centre=None, radius=None):
         elif toward_null[1] and not toward_null[0]:
             direction = direction if rng.random() >= lean else -1
         c = centre.nodes[i] if centre is not None else None
+        # One ratio per node may move per step: the share or one of the two orders, drawn uniformly,
+        # then moved with probability p_move, so the expected total is `bound` and no node moves
+        # more than one grain (until 2026-10-09 the three ratios moved independently, each with
+        # p_move: up to three grains per node and an expected total of three times the bound;
+        # found by Methuselah's audit against the page's "one grain per node at most per move").
+        which = rng.randrange(3)
         if rng.random() < p_move:
-            node.share = move(node.share, direction, c.share if c is not None else None)
-        node.phase = (node.phase + Fraction(rng.randrange(-1, 2), 4 * table.resolution)) % 1
-        for e, ce in zip(node.sisters, c.sisters if c is not None else (None, None)):
-            if rng.random() < p_move:
+            if which == 0:
+                node.share = move(node.share, direction, c.share if c is not None else None)
+            else:
+                e = node.sisters[which - 1]
+                ce = c.sisters[which - 1] if c is not None else None
                 e.order = move(e.order, rng.choice((-1, 1)), ce.order if ce is not None else None)
+        node.phase = (node.phase + Fraction(rng.randrange(-1, 2), 4 * table.resolution)) % 1
     return new
 
 
@@ -462,15 +470,19 @@ def sensitivity(table, prefix, node_index, delta):
 # orders and phases, in units of the grain: a ratio of counts that keeps growing with drift.
 
 
-def delta_magnitude(a, b):
-    """Mean absolute movement of shares, orders and phases between two tables, as a float."""
+def delta_magnitude(a, b, phases=True):
+    """Mean absolute movement of shares, orders and phases between two tables, as a float. With
+    `phases` False the phases are left out: under the classical draw (`draw`, which every corpus
+    and context uses) a phase enters no artifact, so a distance that counts phase movement counts
+    what no reading can show (Methuselah's audit, 2026-10-09, finding 1)."""
     moved = total = 0.0
     for na, nb in zip(a.nodes, b.nodes):
         moved += abs(float(na.share) - float(nb.share))
-        d = abs(float(na.phase) - float(nb.phase))
-        moved += min(d, 1.0 - d)
+        if phases:
+            d = abs(float(na.phase) - float(nb.phase))
+            moved += min(d, 1.0 - d)
         moved += sum(abs(float(ea.order) - float(eb.order)) for ea, eb in zip(na.sisters, nb.sisters))
-        total += 2 + len(na.sisters)
+        total += (2 if phases else 1) + len(na.sisters)
     return moved / total if total else 0.0
 
 
@@ -608,7 +620,9 @@ def cuts_of(table):
 
 def remap(table, rng, count):
     """A step on the incidence: on `count` distinct spoken leaves (form not empty), one grain of
-    weight (1/resolution) moves from a cut the leaf carries to another of the table's cuts, so the
+    weight (1/resolution) moves from a cut the leaf carries to another of the table's cut indices
+    (0 .. cuts − 1, whether or not a leaf uses it; Methuselah's audit of 2026-10-09 read "the
+    table's cuts" as the cuts in use, which `cuts_of` lists: the index range is meant), so the
     extension walks by grains and never jumps (until 2026-10-09 the whole cut switched). Shares and
     orders are untouched, so the strings are unchanged and only the extensions move. Returns
     (table, moves), a move being (node, sister, slot, from cut, to cut). Refuses a table with fewer
@@ -632,7 +646,7 @@ def remap(table, rng, count):
         leaf = e.first if slot == 0 else e.second
         weights = list(leaf_weights(leaf, new.cuts))
         source = rng.choice([c for c, w in enumerate(weights) if w >= grain])
-        target = rng.choice([c for c in range(new.cuts) if c != source])
+        target = rng.choice([c for c in range(new.cuts) if c != source])  # any cut index of the table, used by a leaf or not: a grain moved into a cut no leaf used is a pair outside the trained incidence, the out-of-family move where the two predictions separate (the test "a grain may move into the unseen cut")
         weights[source] -= grain
         weights[target] += grain
         weights = tuple(weights)
