@@ -111,10 +111,11 @@ def scramble_order(window_artifacts, rng):
     return shuffled
 
 
-def distance_from_ball(state_table, ball):
+def distance_from_ball(state_table, ball, phases=True):
     """The truth's distance of a table from a set of tables (the ball training reached): the least
-    movement to any of them. A check on the reader's axis, never the axis itself."""
-    return min(delta_magnitude(state_table, b) for b in ball)
+    movement to any of them. A check on the reader's axis, never the axis itself. `phases` False
+    leaves phase movement out, which no classical artifact carries (schema.delta_magnitude)."""
+    return min(delta_magnitude(state_table, b, phases) for b in ball)
 
 
 def estimated_shares(table_shape, forms):
@@ -122,11 +123,55 @@ def estimated_shares(table_shape, forms):
     return [share for share, _, _ in estimate_shares(table_shape, forms)]
 
 
+def window_distances(shapes, window_list, training_forms):
+    """The reader's axis per window, from artifacts alone: for each window, the estimated distance
+    of the shares its strings pin from the shares the training strings pin, averaged over the shapes
+    in play that pin something from both; None where none does. No provenance is used: every shape
+    reads every string it can parse, in the window and in the corpus (until 2026-10-09 the strings
+    were split by the generator's hidden table assignment and pooled over all windows; Methuselah's
+    audit, finding 3)."""
+    pinned = [estimated_shares(shape, training_forms) for shape in shapes]  # once per shape, not per window
+    out = []
+    for _, _, used in window_list:
+        forms = [a.forms for a in used]
+        per_shape = [_shares_distance(estimated_shares(shape, forms), b) for shape, b in zip(shapes, pinned)]
+        per_shape = [d for d in per_shape if d is not None]
+        out.append(sum(per_shape) / len(per_shape) if per_shape else None)
+    return out
+
+
+def window_truth_distances(window_list, corpus, ball, phases=True):
+    """The truth's distance per window: the mean over its artifacts of the distance of the state
+    that produced each from the ball. The check on `window_distances`."""
+    return [sum(distance_from_ball(corpus.walks[a.table][a.state], ball, phases) for a in used) / len(used) for _, _, used in window_list]
+
+
+def bin_windows(window_list, keys, bins):
+    """The windows split into `bins` groups of equal count by their key (None keys dropped), in
+    increasing key order: [(mean key, [windows]) ...]. Readings past the training radius are taken
+    on the windows whose states lie past it, not on a mixture (the audit, finding 2): a reading
+    corpus walked at a radius holds states from the origin outward."""
+    keyed = sorted(((k, w) for k, w in zip(keys, window_list) if k is not None), key=lambda kw: kw[0])
+    if not keyed:
+        return []
+    size = max(1, len(keyed) // bins)
+    out = []
+    for b in range(bins):
+        part = keyed[b * size : (b + 1) * size] if b + 1 < bins else keyed[b * size :]
+        if part:
+            out.append((sum(k for k, _ in part) / len(part), [w for _, w in part]))
+    return out
+
+
 def estimated_distance(table_shape, reading_forms, training_forms):
     """The reader's axis: how far the shares a reading window pins sit from the shares the training
     corpus pins, on the same shape, averaged over the nodes both pin; None if they pin none in common.
     Read from artifacts alone, after the fact; the truth (distance_from_ball) is its check."""
-    a, b = estimated_shares(table_shape, reading_forms), estimated_shares(table_shape, training_forms)
+    return _shares_distance(estimated_shares(table_shape, reading_forms), estimated_shares(table_shape, training_forms))
+
+
+def _shares_distance(a, b):
+    """Mean absolute difference of two share lists over the nodes both pin; None if none."""
     pairs = [(x, y) for x, y in zip(a, b) if x is not None and y is not None]
     if not pairs:
         return None
@@ -198,15 +243,18 @@ def order_control(model, window_list, separator, rng, whole=None):
     return [(sums_s[r] - sums_o[r]) / counts_o[r] for r in sorted(sums_o) if whole is None or r < whole]
 
 
-def probe_rows(model, window_list, corpus, ball, separator):
+def probe_rows(model, window_list, corpus, ball, separator, phases=True):
     """Per artifact in the windows: (the attended vector at its separator, the truth's distance of
-    its state from `ball`). The x the probe is fitted on and the y it is asked to read."""
+    its state from `ball`, the artifact's rank in its window, the window's index in `window_list`).
+    The x the probe is fitted on and the ys it is asked to read: the distance (the truth, a check on
+    whether the activations hold the state) and the rank k (Izzy's "a probe for a variable tracking
+    k"); the window index lets a fit split by windows, not rows (the audit, finding 5)."""
     rows = []
-    for tokens, _, used in window_list:
+    for w, (tokens, _, used) in enumerate(window_list):
         attended = model.probe(tokens)
         seps = [i for i, t in enumerate(tokens) if t == separator]
-        for a, i in zip(used, seps):
-            rows.append((attended[i], distance_from_ball(corpus.walks[a.table][a.state], ball)))
+        for rank, (a, i) in enumerate(zip(used, seps)):
+            rows.append((attended[i], distance_from_ball(corpus.walks[a.table][a.state], ball, phases), rank, w))
     return rows
 
 
