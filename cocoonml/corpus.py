@@ -222,6 +222,27 @@ def _by_rank(tokens, targets, losses, separator):
     return sums, counts
 
 
+def form_losses_by_rank_with_error(model, window_list, separator, whole=None):
+    """Per rank: (mean form loss, its standard error over the windows, the number of windows with a
+    form target at that rank). The error is the band a comparison of two curves is read against (the
+    rule table's signs; added 2026-10-09 so a slope or a level has a band, not a bare sign)."""
+    per_window = {}
+    for tokens, targets, _ in window_list:
+        s, c = _by_rank(tokens, targets, position_losses(model, tokens, targets), separator)
+        for r in s:
+            per_window.setdefault(r, []).append(s[r] / c[r])
+    out = []
+    for r in sorted(per_window):
+        if whole is not None and r >= whole:
+            continue
+        xs = per_window[r]
+        n = len(xs)
+        mean = sum(xs) / n
+        var = sum((x - mean) ** 2 for x in xs) / (n - 1) if n > 1 else 0.0
+        out.append((mean, math.sqrt(var / n) if n > 1 else None, n))
+    return out
+
+
 def form_losses_by_rank(model, window_list, separator, whole=None):
     """Mean form loss by artifact rank over the windows [(tokens, targets, used)]; ranks past
     `whole` (the rank every window reaches) are dropped when given."""
