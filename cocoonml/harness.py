@@ -6,7 +6,6 @@ position. A later position has seen more artifacts, so loss by position is the r
 against k, read inside one window. Nothing here reports a result; it produces the numbers the
 rule applies to (two dialectical rounds, two replications, before any number is spoken)."""
 
-import math
 import random
 
 from cocoonml.attention import Attention
