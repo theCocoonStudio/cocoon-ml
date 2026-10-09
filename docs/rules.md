@@ -36,3 +36,7 @@ No row moves the ensemble (tables, radii, rates): those are the antecedent of th
 ## The log entry
 
 One line per iteration in `runs/loop-log.md`: the date and time, the vector, the cells run (names and seconds), the row that fired with the comparison it made (as signs and "held" / "did not hold"), and the next vector. The scratch logs hold the JSON lines; the summariser merges them for the round.
+
+## The code
+
+`cocoonml/rules.py` holds the vector, the floor, the sizes, the comparisons, the rows in their order and the log entry, pure and tested (`tests/test_rules.py`); `runs/loop.py` launches the cells, reads them, applies the rows and writes the log. Written by Gargamel to Claude's brief on 2026-10-09 and adapted by Claude for the rate per size (decisions 40); the tests run by Claude.
