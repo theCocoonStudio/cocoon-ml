@@ -42,12 +42,15 @@ class ArrayAttention:
             # overflow and Izzy's "look for your own choices"): a uniform ±s entry has variance s²/3.
             # Embeddings: three are summed, so each at variance 1/(3w) and the stream starts at 1/w.
             # Queries and keys: the scores sum w products with no division, so entries at variance
-            # 1/√w give scores of variance one. Values: ℓ layers add to the stream, so entries at
-            # variance 1/(ℓw) keep the stream within a factor of e of its start. Readout: 1/w.
+            # 1/√w give scores of variance one. Values: ℓ − 1 layers add to the stream (the last
+            # layer's attended vector is read out, not added; forward below), so entries at variance
+            # 1/((ℓ − 1)w) keep the stream within a factor of e of its start, 1/w when nothing adds.
+            # The first version divided by ℓ, one more than the layers that add (Buridan's list,
+            # 2026-10-09; decisions 44). Readout: 1/w.
             embeddings = 3 if separator is not None else 2
             s_embed = math.sqrt(3.0 / (embeddings * width))
             s_qk = math.sqrt(3.0 / math.sqrt(width))
-            s_value = math.sqrt(3.0 / (layers * width))
+            s_value = math.sqrt(3.0 / (max(layers - 1, 1) * width))
             s_read = math.sqrt(3.0 / width)
         else:
             s_embed = s_qk = s_value = s_read = scale

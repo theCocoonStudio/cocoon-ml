@@ -177,7 +177,8 @@ class TestDerivedScale(unittest.TestCase):
         m = ArrayAttention(vocab=6, width=64, length=16, seed=0, separator=5, layers=4, scale="derived")
         bound = lambda a: abs(a).max()
         self.assertLessEqual(bound(m.embed), math.sqrt(3 / (3 * 64)) + 1e-12)  # three embeddings summed
-        self.assertLessEqual(bound(m.value), math.sqrt(3 / (4 * 64)) + 1e-12)  # four layers add
+        self.assertLessEqual(bound(m.value), math.sqrt(3 / (3 * 64)) + 1e-12)  # three of the four layers add; the last is read out
+        self.assertGreater(bound(m.value), math.sqrt(3 / (4 * 64)))  # and not the first version's four (decisions 44)
         self.assertLessEqual(bound(m.query), math.sqrt(3 / 8) + 1e-12)  # √64 = 8 in the scores
         self.assertLessEqual(bound(m.readout), math.sqrt(3 / 64) + 1e-12)
         self.assertGreater(bound(m.query), bound(m.readout))  # the scores' scale is the loosest

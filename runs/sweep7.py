@@ -10,9 +10,9 @@
 # radius is read on the far bins, not the mixture; Methuselah's audit, 2026-10-09); the reader's
 # distance per window against the truth's; two probes from the separator vectors, to the truth's
 # distance and to the rank k, fitted on half the windows and read on the other half. The lean is an
-# argument (swept, not a constant). The model is the array model at the derived initialisation
-# scale sqrt(3 / width) (decisions 32). One cell per process, one JSON line out. Numbers to the log
-# only (the rule).
+# argument (swept, not a constant). The model is the array model at the derived initialisation,
+# every scale read off a count (decisions 41, 44). One cell per process, one JSON line out. Numbers
+# to the log only (the rule).
 # Usage: sweep7.py <name> <forms> <nonterminals> <resolution> <width> <layers> <length> <tables> <train_radius_grains> <steps_mean> <switch_mean> <corpus_size> <read_radii: a,b,free> <read_size> <cap> <seed> [lr=0.1] [patience=3] [minimum=300] [lean=0.75]
 import json, math, random, sys, time
 from fractions import Fraction
@@ -47,7 +47,6 @@ ws = windows(corpus, SEP, length)
 whole = whole_rank(ws)
 held = produce(tables, random.Random(seed + 999), bound, LEAN, train_radius, max(16, corpus_size // 4), steps_mean, switch_mean)
 hws = windows(held, SEP, length)
-scale = math.sqrt(3.0 / width)
 model = ArrayAttention(vocab=forms + 2, width=width, length=length, seed=seed, separator=SEP, layers=layers, scale="derived")  # the initialisation that reads off every count (decisions 41)
 evaluate = lambda: sum(model.loss(t, g) for t, g, _ in hws[:16]) / len(hws[:16])
 losses, evaluations = train_until_plateau(model, lambda: [(t, g) for t, g, _ in rng.sample(ws, min(4, len(ws)))], LR, window=50, tolerance=0.01, cap=cap, evaluate=evaluate, patience=PATIENCE, minimum=MINIMUM)
@@ -60,7 +59,9 @@ def curves(window_list, rng_):
     return {"windows": len(window_list), "whole": w, "form_by_rank": form_losses_by_rank(model, window_list, SEP, w), "form_by_rank_error": form_losses_by_rank_with_error(model, window_list, SEP, w), "order_control_by_rank": order_control(model, window_list, SEP, rng_, w)}
 
 
-def read(window_list, source, rng_):
+def read(window_list, source, rng_, base):
+    """One reading's curves and its probe rows; `base` offsets the rows' window index so windows of
+    different readings never share an index (the split in probe() is by window; decisions 45)."""
     estimated = window_distances(tables, window_list, training_forms)
     truth = window_truth_distances(window_list, source, ball)
     truth_np = window_truth_distances(window_list, source, ball, phases=False)
@@ -72,11 +73,11 @@ def read(window_list, source, rng_):
     out["truth_distance_no_phase"] = sum(truth_np) / len(truth_np) if truth_np else None
     out["by_truth_distance"] = [{"distance": d, **curves(part, rng_)} for d, part in bin_windows(window_list, truth_np, BINS)]
     out["by_estimated_distance"] = [{"distance": d, **curves(part, rng_)} for d, part in bin_windows(window_list, estimated, BINS)]
-    return out, probe_rows(model, window_list, source, ball, SEP, phases=False)
+    return out, [(x, d, k, w + base) for x, d, k, w in probe_rows(model, window_list, source, ball, SEP, phases=False)], base + len(window_list)
 
 
-same, rows = read(ws[: max(4, len(ws) // 4)], corpus, random.Random(seed + 1))  # in-sample: the training windows themselves
-held_reading, more = read(hws, held, random.Random(seed + 3))  # fresh windows at the training radius
+same, rows, base = read(ws[: max(4, len(ws) // 4)], corpus, random.Random(seed + 1), 0)  # in-sample: the training windows themselves
+held_reading, more, base = read(hws, held, random.Random(seed + 3), base)  # fresh windows at the training radius
 rows += more
 points = {}
 for r in read_radii:
@@ -84,7 +85,7 @@ for r in read_radii:
     # radius 0 is the stationary reading at the origins (no steps), not a free walk (a zero radius would turn the pull off)
     reading = produce(tables, random.Random(1000 * seed + (-1 if r is None else r)), bound, LEAN, radius, read_size, 0.0 if r == 0 else steps_mean, switch_mean)
     rws = windows(reading, SEP, length)
-    points["free" if r is None else str(r)], more = read(rws, reading, random.Random(seed + 2))
+    points["free" if r is None else str(r)], more, base = read(rws, reading, random.Random(seed + 2), base)
     rows += more
 
 
@@ -101,7 +102,6 @@ def probe(rows, target):
     return r_squared(wts, b, [x for x, _ in test], [y for _, y in test])
 
 
-# the probe rows carry a window index per reading; offset them so windows of different readings never share an index
 print(json.dumps({
     "run": name, "args": sys.argv[1:], "seconds": round(time.time() - t0, 1), "tables": n_tables, "layers": layers, "width": width, "scale": "derived", "lr": LR, "ball_states": len(ball),
     "train_steps": len(losses), "hit_cap": len(losses) >= cap, "diverged": not math.isfinite(losses[-1]), "evaluations": evaluations, "train_first": losses[0], "train_last": losses[-1],
