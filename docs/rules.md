@@ -39,4 +39,4 @@ One line per iteration in `runs/loop-log.md`: the date and time, the vector, the
 
 ## The code
 
-`cocoonml/rules.py` holds the vector, the floor, the sizes, the comparisons, the rows in their order and the log entry, pure and tested (`tests/test_rules.py`); `runs/loop.py` launches the cells, reads them, applies the rows and writes the log. Written by Gargamel to Claude's brief on 2026-10-09 and adapted by Claude for the rate per size (decisions 40); the tests run by Claude.
+`cocoonml/rules.py` holds the vector, the floor, the sizes, the comparisons, the rows R1 to R4 in their order and the log entry, pure and tested (`tests/test_rules.py`); R5 is in this table and not yet in the code (found by Buridan on this file, 2026-10-10, item 41; a later commit); `runs/loop.py` launches the cells, reads them, applies the rows and writes the log. Written by Gargamel to Claude's brief on 2026-10-09 and adapted by Claude for the rate per size (decisions 40); the tests run by Claude.
