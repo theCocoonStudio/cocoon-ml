@@ -212,3 +212,9 @@ What separates the two predictions now, in k alone, for readings at distances pa
 - **Izzy:** recovery improves with k past the radius and plateaus at a horizontal asymptote below full recovery, the asymptote's height graded with the distance (the delta). Slope in k positive at small k, zero at large k, the level above the start.
 One derivative at small k and one level at large k, both readable by sweep 07 at the derived size. Inside the radius both predict improvement with k.
 *Izzy, 04:35:* "it's not a different prediction from yours, just a more precise one." So one prediction: Claude's is the degenerate case of Izzy's, the asymptote at the starting level with the rise zero; the run measures the rise and the asymptote's height past the radius rather than choosing between two curves.
+
+## Izzy's direction after the sign-off (2026-10-09, 20:42; verbatim; Claude's reading marked)
+
+Izzy: "from a Compsci perspective: the closure of an item is the inner function storing the reference in its own closure". Then: "this can help the ML implementation".
+
+Claude's reading, marked, and no design change from it without Izzy: the model as an inner function that holds references into its outer scope, the world's index, rather than copies of it; an in-context reading as a dereference, paid at a cost (cocoon-relations D19, the same evening); a drifted protocol as a reference gone stale, which is what the ball's distance measures after the fact. Where it would touch the implementation, if Izzy takes it there: the weights and the working state as one object, the activations holding references into the window rather than values extracted from it. Recorded as Izzy's direction for the next design pass; nothing built from it.

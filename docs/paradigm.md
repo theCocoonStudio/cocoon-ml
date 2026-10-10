@@ -40,6 +40,8 @@ Legacy: heavy build, then a lookup at runtime; a fixed space with static geometr
 2. Tensors, then a transformer at nanoGPT scale on Izzy's data, then the seams: tokenization, fixed-window attention, no persistent state, split objectives.
 3. The spec of the replacement, with the dimension named before the model exists and the baseline runnable at the same compute.
 
+Izzy, 2026-10-09 20:43, right after the closure line on the concept page (verbatim): "that's why the orchestrator has to be built into the autograd, my first js implementation." Then: "there's the project,". Asked whether Claude understood how this pushes ML, Izzy (verbatim): "you use the same nodes for storage. the orchestration allows many agents to operate on the same system." Claude's reading, marked: the autograd's graph as a closure structure, each node holding its references and its value at once, with the orchestrator (the top-level function that invokes the others; the JIT choice of the computation's weights, 2026-09-16) inside the graph rather than above it; many agents on one system is many inner functions over one outer scope, the same nodes read at different costs. The JS Autograd.js of September, with its JIT topology and state machine (issue #4), was the first reach at this. Read against the list above: step 2 is the baseline and step 3's replacement is this autograd, whose spec starts from Izzy's line. Whether it solves anything is graded by the first run, nothing earlier.
+
 ## Who does what, and the credit
 
 - Izzy originates: every concept, derivation and design decision. Izzy writes the code from the concept, with no hints; "no" and "not quite" are allowed, the next step is not.
