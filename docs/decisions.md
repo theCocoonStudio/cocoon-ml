@@ -2,6 +2,8 @@
 
 Every choice in the apparatus that is mine, one line each, for oversight: what was decided, the alternative, why, and what would show it wrong. Izzy's design, which is not a list of choices but of edges found and removed, each a forced direction (form drifts and meaning holds; no jumps; the artifact a string; sisters sum to one; complex weights; relative counts on rationals; the remap knob off; the rule for numbers) are on the concept page and are not listed here. Added 2026-10-08 at Izzy's ask; every later decision goes here in the same commit that makes it.
 
+**Debt, unweighed (Izzy and Claude, 2026-10-10 15:4x).** A third bin beside the choices and the forced directions: an item we are not sure is a choice, a thing we can toggle or adjust later that may or may not be a choice in the framework's sense. The protocol cannot order what it cannot weigh, so the bin sits above the ordered list and is reviewed first; from the ledger's side it is debt, a cost of leaving it with no test to fail it (Izzy's standard: what a test can fail is not debt). Such an item carries both words in this file and in the reviews. First member: the evaluation set the best model is measured on (row 48, item four, now implementation: the best copy and the ties left the list at 15:3x).
+
 ## Principles I applied (the fast read)
 
 1. **Exact where the count is, floating where the model is.** The schema runs on `Fraction` (counts, shares, phases); the model runs on Python floats. The mantissa is read as the model's grain, never as the schema's.
