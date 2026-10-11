@@ -61,6 +61,7 @@ class TestSweep7CapMode(unittest.TestCase):
         chosen = self.line["copies"][self.line["read_copy"]]
         self.assertEqual(self.line["points"], chosen["points"])
         self.assertEqual(self.line["held"], chosen["held"])  # the held reading of the read copy
+        self.assertEqual(self.line["circuits"], chosen["circuits"])  # the circuit scores of the read copy at the top level too
         self.assertEqual(self.line["same"], chosen["same"])
 
     def test_plateau_mode_is_unchanged_in_shape(self):
