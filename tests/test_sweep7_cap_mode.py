@@ -71,6 +71,7 @@ class TestSweep7CapMode(unittest.TestCase):
         self.assertEqual(line["mode"], "plateau")
         self.assertNotIn("copies", line)
         self.assertIn("points", line)
+        self.assertEqual(len(line["circuits"]["induction"]), 2)  # the circuit scores per layer, both modes
 
 
 if __name__ == "__main__":

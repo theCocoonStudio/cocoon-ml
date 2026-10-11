@@ -158,6 +158,13 @@ class ArrayAttention:
         logits, attended, _ = self._forward_batch(np.array([tokens], dtype=int))
         return logits[0], attended[0]
 
+    def attention(self, tokens):
+        """The attention weights of every layer for one sequence: a list, one (n x n) array per
+        layer, rows the query positions, causal (zero above the diagonal), each row summing to one.
+        For the circuits reader (cocoonml/circuits.py); a forward with no backward."""
+        _, _, cache = self._forward_batch(np.array([tokens], dtype=int))
+        return [weights[0] for (_, _, _, _, weights) in cache]
+
     @staticmethod
     def _cross_entropy(logits, targets):
         """-log softmax(logits)[target] along the last axis, stably; any leading shape."""
