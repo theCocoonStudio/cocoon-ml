@@ -139,7 +139,7 @@ else:
         if copy is None:
             line["copies"][copy_name] = None
             continue
-        entry = {"step": copy.step, "held": copy.held}
+        entry = {"step": copy.step, "held_loss": copy.held}  # "held" below is the copy's held reading (read_everything); the loss has its own key
         if COPIES_DIR:
             os.makedirs(COPIES_DIR, exist_ok=True)
             entry["file"] = os.path.join(COPIES_DIR, f"{name}-{copy_name}.npz")
