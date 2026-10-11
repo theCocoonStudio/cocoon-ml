@@ -17,7 +17,8 @@ import math
 import random
 
 from cocoonml.corpus import _poisson
-from cocoonml.schema import classical_joint, step
+from cocoonml.schema import classical_joint
+from cocoonml.schema import step as schema_step
 
 FLOOR = 1e-12  # the smallest probability scored, so a zero never gives an infinite loss
 
@@ -39,6 +40,97 @@ def switch_probability(switch_mean, n_tables):
     return math.exp(-switch_mean) * math.sinh(switch_mean)
 
 
+class SchemaWorld:
+    """The schema's tables as a world for the predictor: every mass from the enumerated classical
+    string distribution of a state (cached by object identity; states are immutable once produced),
+    an artifact fitting when its length plus the separator is within the room left."""
+
+    def __init__(self):
+        self._cache = {}
+
+    def _dist(self, table):
+        key = id(table)
+        if key not in self._cache:
+            self._cache[key] = (table, string_distribution(table))  # the table kept so the id stays valid
+        return self._cache[key][1]
+
+    def forms(self, origins):
+        return sorted({f for t in origins for forms in self._dist(t) for f in forms})
+
+    def prefix_mass(self, state, prefix, room):
+        """P(the artifact starts with `prefix` and fits in `room` tokens)."""
+        return sum(p for forms, p in self._dist(state).items() if len(forms) + 1 <= room and forms[: len(prefix)] == prefix)
+
+    def exact_mass(self, state, prefix, room):
+        """P(the artifact is exactly `prefix` and fits)."""
+        return self._dist(state).get(prefix, 0.0) if len(prefix) + 1 <= room else 0.0
+
+    def empty_mass(self, state):
+        return self._dist(state).get((), 0.0)
+
+    def no_fit_mass(self, state, room):
+        return sum(p for forms, p in self._dist(state).items() if len(forms) + 1 > room)
+
+    def step(self, state, rng, bound, lean, centre, radius):
+        return schema_step(state, rng, bound, lean, centre=centre, radius=radius)
+
+
+class MarkovWorld:
+    """The Markov-chain world (cocoonml/markov.py, decisions 55): a chain's predictive is its row,
+    so every mass is a product along the prefix times the probability of ending within the room
+    left, by a short recursion over the remaining length; no string is enumerated, and the floor is
+    exact with no steps, which is what their KL-to-optimum curve needs."""
+
+    def __init__(self):
+        self._ends = {}
+
+    def forms(self, origins):
+        return list(range(1, origins[0].states + 1))
+
+    def _end_within(self, chain, j, state):
+        """P(from `state`, about to transition, the run ends with at most j more states emitted)."""
+        key = (id(chain), j, state)
+        if key not in self._ends:
+            row = chain.rows[state]
+            end = float(row[-1])
+            if j > 0:
+                end += sum(float(row[s]) * self._end_within(chain, j - 1, s) for s in range(chain.states) if row[s] > 0)
+            self._ends[key] = (chain, end)  # the chain kept so the id stays valid
+        return self._ends[key][1]
+
+    def _prefix(self, chain, prefix):
+        p = float(chain.start[prefix[0] - 1])
+        for a, b in zip(prefix, prefix[1:]):
+            p *= float(chain.rows[a - 1][b - 1])
+        return p
+
+    def prefix_mass(self, state, prefix, room):
+        if not prefix:
+            return 1.0 - self.no_fit_mass(state, room)
+        more = room - 1 - len(prefix)  # states the run may still emit and fit, with its separator
+        if more < 0:
+            return 0.0
+        return self._prefix(state, prefix) * self._end_within(state, more, prefix[-1] - 1)
+
+    def exact_mass(self, state, prefix, room):
+        if not prefix or len(prefix) + 1 > room:
+            return 0.0
+        return self._prefix(state, prefix) * float(state.rows[prefix[-1] - 1][-1])
+
+    def empty_mass(self, state):
+        return 0.0  # a run emits its start state at least
+
+    def no_fit_mass(self, state, room):
+        if room < 2:
+            return 1.0
+        return 1.0 - sum(float(state.start[s]) * self._end_within(state, room - 2, s) for s in range(state.states) if state.start[s] > 0)
+
+    def step(self, state, rng, bound, lean, centre, radius):
+        from cocoonml.markov import step as markov_step
+
+        return markov_step(state, rng, bound, lean, centre=centre, radius=radius)
+
+
 class _Hypothesis:
     """One hypothesis about the hidden state: the producing table, every table's current state,
     whether padding has begun, and the weight carried into the current artifact."""
@@ -49,45 +141,23 @@ class _Hypothesis:
         self.weight, self.which, self.states, self.padded = weight, which, states, padded
 
 
-class _Distributions:
-    """The string distribution of every state met, cached by object identity (states are immutable
-    once produced; step returns a new table)."""
-
-    def __init__(self):
-        self.cache = {}
-
-    def of(self, table):
-        key = id(table)
-        if key not in self.cache:
-            self.cache[key] = (table, string_distribution(table))  # the table kept so the id stays valid
-        return self.cache[key][1]
-
-
-def _mass(dist, prefix, room):
-    """The mass of the strings that start with `prefix` and fit in `room` tokens (len + 1 for the separator)."""
-    return sum(p for forms, p in dist.items() if len(forms) + 1 <= room and forms[: len(prefix)] == prefix)
-
-
-def _no_fit(dist, room):
-    return sum(p for forms, p in dist.items() if len(forms) + 1 > room)
-
-
-def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, bound=None, lean=None, radius=None, particles=0, rng=None):
+def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, bound=None, lean=None, radius=None, particles=0, rng=None, world=None):
     """Per position i, {next token: probability} under the Bayes-optimal predictor given tokens[:i+1],
     over the forms and the separator. Exact when steps_mean is 0 (hypotheses are the tables in play,
     merged by producer, plus padding); a particle filter otherwise (`particles` of them, `rng` theirs).
-    The window's first artifact's producer is uniform over the tables (the switching is symmetric)."""
+    The window's first artifact's producer is uniform over the tables (the switching is symmetric).
+    `world` gives the masses (SchemaWorld by default; MarkovWorld for chains)."""
+    world = world or SchemaWorld()
     n = len(origins)
     p_switch = switch_probability(switch_mean, n)
     exact = steps_mean <= 0
     if not exact and (particles <= 0 or rng is None):
         raise ValueError("with steps the predictor is a particle filter: give `particles` and `rng`")
-    dists = _Distributions()
     if exact:
         hyps = [_Hypothesis(1.0 / n, t, list(origins)) for t in range(n)]
     else:
         hyps = [_Hypothesis(1.0 / particles, rng.randrange(n), list(origins)) for _ in range(particles)]
-    forms_seen = sorted({f for t in origins for forms in dists.of(t) for f in forms})
+    forms_seen = world.forms(origins)
     length = len(tokens)
     room = length  # tokens left for the artifact that starts at the current boundary
     prefix = ()
@@ -112,7 +182,7 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
                     which = rng.choice([i for i in range(n) if i != which])
                 states = list(h.states)
                 for _ in range(_poisson(rng, steps_mean)):
-                    states[which] = step(states[which], rng, bound, lean, centre=origins[which], radius=radius)
+                    states[which] = world.step(states[which], rng, bound, lean, origins[which], radius)
                 new.append(_Hypothesis(h.weight, which, states))
         if exact:  # merge by (which, padded)
             merged = {}
@@ -146,10 +216,10 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
                 if h.padded:
                     p_sep += h.weight
                     continue
-                dist = dists.of(h.states[h.which])
-                p_sep += h.weight * (dist.get((), 0.0) + _no_fit(dist, room))
+                state = h.states[h.which]
+                p_sep += h.weight * (world.empty_mass(state) + world.no_fit_mass(state, room))
                 for f in forms_seen:
-                    probs[f] = probs.get(f, 0.0) + h.weight * _mass(dist, (f,), room)
+                    probs[f] = probs.get(f, 0.0) + h.weight * world.prefix_mass(state, (f,), room)
             probs[separator] = p_sep
         else:
             # inside an artifact every weight already carries w0 · P(prefix fits): the predictive is the
@@ -159,14 +229,14 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
             for h in hyps:
                 if h.padded or h.weight <= 0:
                     continue
-                dist = dists.of(h.states[h.which])
-                before = _mass(dist, prefix, room)
+                state = h.states[h.which]
+                before = world.prefix_mass(state, prefix, room)
                 if before <= 0:
                     continue
                 total += h.weight
-                p_sep += h.weight * (dist.get(prefix, 0.0) / before if len(prefix) + 1 <= room else 0.0)
+                p_sep += h.weight * world.exact_mass(state, prefix, room) / before
                 for f in forms_seen:
-                    probs[f] = probs.get(f, 0.0) + h.weight * _mass(dist, prefix + (f,), room) / before
+                    probs[f] = probs.get(f, 0.0) + h.weight * world.prefix_mass(state, prefix + (f,), room) / before
             probs[separator] = p_sep
             if total > 0:
                 probs = {k: v / total for k, v in probs.items()}
@@ -181,8 +251,8 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
                     if h.padded:
                         new.append(h)
                         continue
-                    dist = dists.of(h.states[h.which])
-                    empty, nofit = dist.get((), 0.0), _no_fit(dist, room)
+                    state = h.states[h.which]
+                    empty, nofit = world.empty_mass(state), world.no_fit_mass(state, room)
                     if exact:  # both branches carried: padding began, or an empty artifact (a boundary again)
                         if nofit > 0:
                             new.append(_Hypothesis(h.weight * nofit, h.which, h.states, padded=True))
@@ -199,7 +269,7 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
                 room -= 1
             else:
                 for h in hyps:
-                    h.weight = 0.0 if h.padded else h.weight * _mass(dists.of(h.states[h.which]), (tok,), room)
+                    h.weight = 0.0 if h.padded else h.weight * world.prefix_mass(h.states[h.which], (tok,), room)
                 if exact:
                     hyps = normalise([h for h in hyps if h.weight > 0])
                 prefix = (tok,)
@@ -208,8 +278,9 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
             if tok == separator:
                 for h in hyps:
                     if not h.padded:
-                        dist = dists.of(h.states[h.which])
-                        h.weight = h.weight * (dist.get(prefix, 0.0) / _mass(dist, prefix, room) if _mass(dist, prefix, room) > 0 else 0.0)
+                        state = h.states[h.which]
+                        before = world.prefix_mass(state, prefix, room)
+                        h.weight = h.weight * (world.exact_mass(state, prefix, room) / before if before > 0 else 0.0)
                 hyps = normalise(transition(hyps) if exact else transition(normalise(hyps)))
                 room -= len(prefix) + 1
                 prefix = ()
@@ -217,8 +288,8 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
             else:
                 for h in hyps:
                     if not h.padded:
-                        dist = dists.of(h.states[h.which])
-                        before, after = _mass(dist, prefix, room), _mass(dist, prefix + (tok,), room)
+                        state = h.states[h.which]
+                        before, after = world.prefix_mass(state, prefix, room), world.prefix_mass(state, prefix + (tok,), room)
                         h.weight = h.weight * (after / before if before > 0 else 0.0)
                 prefix = prefix + (tok,)
         # predict tokens[i + 1] (the separator after the last position, as pack_window targets it)
