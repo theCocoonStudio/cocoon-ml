@@ -58,7 +58,9 @@ class TestTheLadder(unittest.TestCase):
     def test_no_onset_anywhere_is_a_and_names_the_corpus_at_the_pass_bound_size(self):
         small = [run_cell(96, 7, 1, lr, FLAT_EVALS) for lr in (0.1, 0.05)]
         self.assertIn("unread at this budget", ladder(small)["decision"])
-        large = [run_cell(192, 9, 1, lr, FLAT_EVALS) for lr in (0.1, 0.05)]
+        self.assertFalse(ladder(small)["pass_bound"])
+        large = [run_cell(192, 9, 1, lr, FLAT_EVALS) for lr in (0.1, 0.05)]  # 3 650 windows: ten passes are 9 125 steps, under eight crossings of 1 243
+        self.assertTrue(ladder(large)["pass_bound"])
         self.assertIn("unread at this corpus", ladder(large)["decision"])
 
     def test_every_rung_escaping_before_its_onset_extends_the_ladder_down(self):
@@ -74,6 +76,18 @@ class TestReplication(unittest.TestCase):
         flat = [flat_07c(1, 144, 8), flat_07c(1, 192, 9), flat_07c(2, 144, 8)]
         null = null_readings(flat, self.three_sizes(RISING), 1)
         self.assertEqual(null["slope_2"], [0.0] * 5)  # two flat cells at radius 1 and three marginal copies, all FLAT
+        self.assertTrue(all(k.startswith(("slope_", "level_")) for k in null))  # the order control is not a key (third form (4))
+        self.assertEqual(sorted(null), ["level_2", "level_3", "slope_2", "slope_3"])  # the fixture's free radius has no far bin; on the record the free radius adds two, six at radius 1
+
+    def test_a_key_counting_at_one_size_only_abstains_and_the_comparison_waits(self):
+        cells = [run_cell(96, 7, 1, 0.05, LEARNED_EVALS, onset=150, best_far=RISING), run_cell(144, 8, 1, 0.05, LEARNED_EVALS, onset=150, best_far=FLAT), run_cell(192, 9, 1, 0.05, LEARNED_EVALS, onset=150, best_far=FLAT)]
+        rep = replication(cells, [], 1)
+        self.assertEqual(rep["matched_verdicts"][0.05], "every key abstains")
+        self.assertIn("waits for the next run", rep["decision"])
+        flat_everywhere = [run_cell(w, l, 1, 0.05, LEARNED_EVALS, onset=150, best_far=FLAT) for (w, l) in ((96, 7), (144, 8), (192, 9))]
+        rep = replication(flat_everywhere, [], 1)
+        self.assertEqual(rep["matched_verdicts"][0.05], "no key counts")
+        self.assertIn("the N row", rep["decision"])
 
     def test_signs_agreeing_at_every_counting_key_let_the_readings_stand(self):
         rep = replication(self.three_sizes(RISING), [flat_07c(1, 144, 8), flat_07c(1, 192, 9)], 1)
@@ -110,6 +124,7 @@ class TestThePredictions(unittest.TestCase):
         pred = onset_prediction([met, late])
         self.assertFalse(pred["fires"])
         self.assertTrue(pred["fails_at_largest"])
+        self.assertTrue(onset_prediction([run_cell(96, 7, 1, 0.05, FLAT_EVALS)])["unread"])  # no cell learned: unread, not failed
 
     def test_prediction_four_reads_the_radius_two_cells_that_reach_four_crossings(self):
         plateau = [1.09, 1.095, 1.088, 1.092, 1.09, 1.091]
