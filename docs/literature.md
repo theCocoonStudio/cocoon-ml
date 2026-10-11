@@ -52,6 +52,24 @@ Izzy's reference ("the paper describing circuits with Bayesian math", 23:1x). **
 
 Akyürek et al. (2022) and von Oswald et al. (2022) on in-context learning as implicit gradient descent on linear problems; Garg et al. (2022) on in-context learning of function classes. Less close to our setting (regression, not sequences from a generator); listed so the framing on their terms is available if a reviewer brings it.
 
+## Download list for the research session
+
+For `cocoon claude -- --research` (the sandbox's research hosts: arxiv.org, export.arxiv.org, api.semanticscholar.org), one session, a few papers; the identifiers are from memory and are checked against the title page on download. Destination: `cocoon-ai-records/claude/papers/` (the record, not the code; proposed, Izzy's call), one PDF each, and this file's entries verified against them afterwards.
+
+| entry | paper | arXiv id (unverified) |
+| --- | --- | --- |
+| 1 | Edelman, Edelman, Goel, Malach, Tsilivis 2024, statistical induction heads | 2402.11004 |
+| 2 | Olsson et al. 2022, in-context learning and induction heads | 2209.11895 |
+| 3 | Elhage et al. 2021, a mathematical framework for transformer circuits | transformer-circuits.pub (no arXiv id; the host is not in the research list: ask) |
+| 4 | Xie, Raghunathan, Liang, Ma 2022, in-context learning as implicit Bayesian inference | 2111.02080 |
+| 5 | Chan et al. 2022, data distributional properties | 2205.05055 |
+| 6 | Reddy 2024, the mechanistic basis of abrupt learning | 2312.03002 |
+| 7 | Singh et al. 2023, the transient nature of in-context learning | 2311.08360 |
+| 8 | Bietti et al. 2023, birth of a transformer | 2306.00802 |
+| 9 | Nichani, Damian, Lee 2024, causal structure | 2402.14735 |
+| 9 | Makkuva et al. 2024, attention with Markov | 2402.04161 |
+| further | Akyürek et al. 2022; von Oswald et al. 2022; Garg et al. 2022 | 2211.15661; 2212.07677; 2208.01066 |
+
 ## Order of work
 
 1. The circuits reader on the 07e copies when the run ends (entries 2 and 3), read as apparatus behaviour in round one, not as a result.
