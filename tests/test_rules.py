@@ -222,6 +222,9 @@ class TestLogEntry(unittest.TestCase):
         for number in ("0.123456", "0.567891", "0.054321", "0.4443"):
             self.assertNotIn(number, entry)
         self.assertIn("next: stop", log_entry("s", VECTOR, [(96, 7)], cells, "host", "held", None))
+        with_rates = log_entry("s", VECTOR, [(96, 7)], cells, "stop", "no row fires", VECTOR, rates={(96, 7): 0.05, (144, 8): 0.1})
+        self.assertIn("rates per size (96, 7) 0.05, (144, 8) 0.1", with_rates)  # decisions 53: the rate each size ran at is logged
+        self.assertNotIn("rates per size", log_entry("s", VECTOR, [(96, 7)], cells, "stop", "no row fires", VECTOR, rates={}))
         row, _, detail = apply_rows(three(far_at_largest=FALLING), (1,), VECTOR, 11.4)
         entry = log_entry("s", VECTOR, sizes(96, 7), three(far_at_largest=FALLING), row, detail, VECTOR)
         self.assertIn("row R4: held over sweep-07-r1-w96, sweep-07-r1-w144, sweep-07-r1-w192: slope_2 (+, +, -)", entry)
