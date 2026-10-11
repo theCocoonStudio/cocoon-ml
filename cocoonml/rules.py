@@ -3,6 +3,7 @@ floor, the sizes, a cell's command and its JSON line, the comparisons a cell's r
 rows in their order, and the log entry. Pure: no I/O; runs/loop.py launches and writes."""
 import json
 import math
+import statistics
 from dataclasses import dataclass, replace
 
 SIGNS = {-1: "-", 0: "0", 1: "+"}
@@ -245,28 +246,26 @@ def apply_rows(cells, train_radii, vector, mean_artifacts_per_window, band=0.0, 
     size list moves, in the loop; "stop" returns the vector unchanged. cells is
     {(train_radius, width): cell}; the result is (row, next vector or None, detail)."""
     ordered = [cells[key] for key in sorted(cells)]
-    fired = [(key, r1_instability(cells[key])) for key in sorted(cells)]
-    fired = [(key, detail) for key, (fires, detail) in fired if fires]
-    if fired:
-        # R1 is per cell and moves that size's rate (decisions 40): the vector stands, the rates move;
-        # the detail names every cell that fired, and the loop halves the rate of each of their sizes
-        return "R1", vector, "; ".join(detail for _, detail in fired)
+    # R1 no longer moves anything (decisions 53: the ladder of rates is the search, a divergence is a
+    # reading); the cells it holds at are named in the detail of whatever fires, and the rate stands.
+    unstable = "; ".join(detail for _, (fires, detail) in ((key, r1_instability(cells[key])) for key in sorted(cells)) if fires)
+    noted = f" (R1 holds, a reading: {unstable})" if unstable else ""
     for cell in ordered:
         fires, detail = r2_budget(cell, tolerance)
         if fires:
             cap = 2 * vector.cap
             corpus = max(vector.corpus, corpus_floor_for(cap, mean_artifacts_per_window))
-            return "R2", replace(vector, cap=cap, corpus=corpus), detail
+            return "R2", replace(vector, cap=cap, corpus=corpus), detail + noted
     for cell in ordered:
         fires, detail = r3_k_range(cell)
         if fires:
-            return "R3", replace(vector, length=math.ceil(1.5 * vector.length)), detail
+            return "R3", replace(vector, length=math.ceil(1.5 * vector.length)), detail + noted
     for train_radius in train_radii:
         by_size = [cells[key] for key in sorted(cells) if key[0] == train_radius]
         fires, detail = r4_disagree(by_size, train_radius, band)
         if fires:
-            return "R4", None, detail
-    return "stop", vector, "no row fires"
+            return "R4", None, detail + noted
+    return "stop", vector, "no row fires" + noted
 
 
 def _vector_text(vector):
@@ -281,3 +280,117 @@ def log_entry(stamp, vector, sizes_run, cells, row, detail, next_vector):
     sized = ", ".join(f"({w}, {l})" for w, l in sizes_run)
     following = "stop" if next_vector is None else _vector_text(next_vector)
     return f"- {stamp} · vector {_vector_text(vector)} · sizes {sized}: {run} · row {row}: {detail} · next: {following}"
+
+
+# --- Decisions 53, the run's row at the statistical layer: its predicates and tests, pure ---------
+# The run of twenty-four cells (three sizes, two training radii, a ladder of four rates) runs every
+# cell to its cap or its escape with no stopping rule; these functions are applied to the record
+# after it. Every constant below is the row's and is named there; nothing here reads a file.
+
+ENVELOPE = 0.0378  # the null's envelope: the largest departure any of the six flat cells of 07c and 07d showed (r2-w192 at 200); recomputed on the JSON lines 2026-10-10 22:19
+WINDOW = 50  # the held evaluation every fifty steps (runs/sweep7.py)
+
+
+def departures(evaluations):
+    """Each held evaluation's departure below the running median of the evaluations before it (None
+    for the first, which has no reference). The reference is the plateau's level as the trajectory
+    reports it, so the first evaluation's offset above the plateau, and that offset's dependence on
+    the rate, drop out by construction (decisions 53, fourth form (1))."""
+    out = [None]
+    for j in range(1, len(evaluations)):
+        out.append(statistics.median(evaluations[:j]) - evaluations[j])
+    return out
+
+
+def envelope(flat_trajectories):
+    """The null's envelope over the flat cells' held trajectories: the largest departure any showed;
+    None when no trajectory has two evaluations."""
+    found = [d for ev in flat_trajectories for d in departures(ev) if d is not None]
+    return max(found) if found else None
+
+
+def onset(evaluations, envelope=ENVELOPE, persistence=2, window=WINDOW):
+    """The onset step: the first of `persistence` consecutive evaluations whose departure exceeds the
+    envelope; a step's window is the evaluation index of the window holding it, so evaluation i
+    (counted from 1) is step window · i (the window convention, third form (1)). None if never: a
+    cell with no onset has no best copy and gives the null its marginal copy only."""
+    dep = departures(evaluations)
+    for j in range(1, len(dep) - persistence + 1):
+        if all(dep[j + k] > envelope for k in range(persistence)):
+            return window * (j + 1)
+    return None
+
+
+def second_descent(evaluations, envelope=ENVELOPE, plateau=6, persistence=2, window=WINDOW, after=None):
+    """Prediction (4)'s predicate (third form (7)): a plateau of `plateau` evaluations, each within the
+    envelope of their median (held, not still falling: the clause that makes the descent a second
+    one, a choice marked here), followed by `persistence` consecutive evaluations below that median
+    by more than the envelope; returns the step of the first of them, or None. With `after` (the
+    cell's onset step), only plateaus whose first evaluation lies after it count, so the marginal
+    plateau before the onset is not read as a plateau and the onset's own descent is not a second one."""
+    for j in range(plateau, len(evaluations) - persistence + 1):
+        if after is not None and window * (j - plateau + 1) <= after:
+            continue
+        level = statistics.median(evaluations[j - plateau : j])
+        if any(abs(e - level) > envelope for e in evaluations[j - plateau : j]):
+            continue
+        if all(level - evaluations[j + k] > envelope for k in range(persistence)):
+            return window * (j + 1)
+    return None
+
+
+def concordance(escapes):
+    """Test (1), the ladder per size: `escapes` maps each rate to its escape step, or None for none
+    within the cap. Over the pairs with at least one escape (two cap ties are excluded, as are two
+    equal escape steps), a pair is concordant when the higher rate escaped earlier. Returns
+    (concordant, discordant); decision (d) fires on a discordant pair."""
+    rates = sorted(escapes)
+    concordant = discordant = 0
+    for i, low in enumerate(rates):
+        for high in rates[i + 1 :]:
+            at_low, at_high = escapes[low], escapes[high]
+            if at_low is None and at_high is None:
+                continue
+            if at_low is None or (at_high is not None and at_high < at_low):
+                concordant += 1
+            elif at_high is None or at_high > at_low:
+                discordant += 1
+    return concordant, discordant
+
+
+def rank_sign(value, null_values):
+    """The rank rule (second form (iv)): a best copy's reading counts where it lies outside the
+    null's range at its key and radius, on either side; the sign is the side of the null, +1 above
+    it, -1 below, 0 inside (abstains). An empty null counts nothing."""
+    if not null_values:
+        return 0
+    if value > max(null_values):
+        return 1
+    if value < min(null_values):
+        return -1
+    return 0
+
+
+def differ_pairwise(signs):
+    """R4's "differ" as the second form restates it, for one key over the sizes' signs: zeros abstain;
+    the key enters where it counts at two sizes or more; it differs when any counting pair differs.
+    Returns None (does not enter), False (agree) or True (differ)."""
+    counting = [s for s in signs if s]
+    if len(counting) < 2:
+        return None
+    return len(set(counting)) > 1
+
+
+def crossing(width, whole, effective_count):
+    """Decisions 48, the one-times crossing at the cell's own whole: the step at which the windows
+    seen carry as many bits as the match's parameters, 2w² · b against whole · log₂(effective string
+    count) per window, in batches of 4 (derived_floor's cap row at whole 8); 311, 699 and 1 243 at
+    whole 9 for the three sizes."""
+    return math.ceil(2 * width ** 2 * BITS_PER_PARAMETER / (BATCH_WINDOWS * whole * math.log2(effective_count)))
+
+
+def cap_for(width, whole, effective_count, corpus_windows, crossings=8, passes=10):
+    """Decisions 53, the cap per size: the smaller of `crossings` times the crossing and `passes`
+    passes of the corpus (each window drawn at most ten times: corpus_windows · passes / 4 steps,
+    rounded down); 2 488, 5 592 and 9 127 at the three sizes on the record's corpora."""
+    return min(crossings * crossing(width, whole, effective_count), corpus_windows * passes // BATCH_WINDOWS)
