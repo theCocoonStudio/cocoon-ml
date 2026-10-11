@@ -25,4 +25,6 @@ How a sweep runs: from a `git archive` of the branch head unpacked into a scratc
 
 `row53.py <log_dir> [prefix=sweep-07e]` applies decisions 53's tests (`cocoonml/run_row.py`) to the JSON lines of a run in mode `cap`, with the four flat 07c cells for the null, and prints which decision each outcome maps to with the numbers it rests on; it is the reading of 07e, run after the last cell ends and never before.
 
+`reference7.py <forms> <nonterminals> <resolution> <length> <tables> <train_radius> <steps_mean> <switch_mean> <corpus_size> <seed> [lean] [particles] [particle_seed]` computes decisions 54's two references for an ensemble's held set, the marginal level and the Bayes floor (`cocoonml/reference.py`), at two particle counts so the estimate's movement is on the record; run for the 07e ensemble at both radii on 2026-10-10 23:5x into `~/.claude/scratch/runs/reference-07e-r{1,2}.log`, read beside the row's tests in round one.
+
 The smoke lines of sweeps 03 to 05 (`smoke-03`, `smoke-04`, `smoke-04r`, `smoke-05`) are the same scripts at toy size, run once before each launch. The summarisers (`summarise3.py`, `summarise4.py`, `summarise5.py`) take the sweep name and read `runs/<name>-t*m*.log` beside them (`summarise3.py` takes one log).
