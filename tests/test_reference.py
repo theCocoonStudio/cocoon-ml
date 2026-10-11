@@ -199,8 +199,6 @@ class TestTheSecondFormOfTheReferences(unittest.TestCase):
             self.assertAlmostEqual(sum(p.values()), 1.0, places=6)
 
     def test_the_burn_in_starts_the_particles_off_the_origin(self):
-        from cocoonml.reference import SchemaWorld, _Hypothesis  # noqa: F401
-        from cocoonml.schema import delta
 
         ws = toy_windows(steps_mean=1.0, radius=1)[:1]
         tokens, targets, _ = ws[0]

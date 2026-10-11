@@ -403,7 +403,7 @@ class TestTheoremTwo(unittest.TestCase):
     small δ and a tolerance for the second order."""
 
     def test_sensitivity_is_bounded_by_consistent_mass_on_random_tables(self):
-        from cocoonml.schema import consistent_mass, predictive, sensitivity
+        from cocoonml.schema import consistent_mass, sensitivity
 
         rng = random.Random(0)
         checked = 0
@@ -619,7 +619,6 @@ class TestGradedLeaves(unittest.TestCase):
             self.assertEqual(sum(ext), leaves[forms])  # the extension's total is the leaf count, whatever the weights
 
     def test_draw_gives_the_sum_of_the_leaves_vectors(self):
-        from cocoonml.schema import leaf_weights
 
         table = generate(forms=1, cuts=2, nonterminals=1, resolution=4, seed=0, graded=True)
         node = table.nodes[0]

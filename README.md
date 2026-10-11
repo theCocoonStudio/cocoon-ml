@@ -12,7 +12,7 @@ The loop: a concept is written down in `docs/concepts/`, in a few lines. The cod
 
     python3 -m unittest
 
-No install; numpy from the distribution (`python3-numpy`; CI installs the same version from PyPI, pinned in `.github/workflows/check.yml`). Python 3.11 or later. The suite runs a toy-size cell of `runs/sweep7.py` in both modes as part of its tests.
+No install; numpy from the distribution (`python3-numpy`; CI installs the same version from PyPI, pinned in `.github/workflows/check.yml`). Nothing unlinted: `python3 -m pyflakes cocoonml tests runs` passes before a commit (Debian's `python3-pyflakes`, 2.5.0, the version CI pins), then `python3 -m unittest`. Python 3.11 or later. The suite runs a toy-size cell of `runs/sweep7.py` in both modes as part of its tests.
 
 ## Why
 

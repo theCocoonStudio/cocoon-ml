@@ -108,7 +108,6 @@ class TestFilledContexts(unittest.TestCase):
             self.assertNotEqual(tokens[-2], 9)
 
     def test_curves_with_fill_stop_at_the_rank_every_context_reaches(self):
-        import random
         from cocoonml.attention import Attention
         from cocoonml.harness import meaning_loss_at_separators
 

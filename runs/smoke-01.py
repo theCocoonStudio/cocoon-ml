@@ -1,5 +1,5 @@
 # Smoke run 01 of the apparatus (2026-10-08). Numbers go to the log, not to Izzy (the rule).
-import json, time, random
+import json, time
 from fractions import Fraction
 from cocoonml.schema import generate, delta
 from cocoonml.harness import run
