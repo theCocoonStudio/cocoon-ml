@@ -50,12 +50,19 @@ class Corpus:
         return [a.forms for a in self.artifacts]
 
 
-def produce(tables, rng, bound, lean, radius, count, steps_mean=1.0, switch_mean=0.5):
+def produce(tables, rng, bound, lean, radius, count, steps_mean=1.0, switch_mean=0.5, draw=None, step=None):
     """`count` artifacts from the tables in play. Each table walks around its origin within
     `radius` (None: a free walk). Between consecutive artifacts the producing table takes a drawn
     number of steps (Poisson, `steps_mean`) and the production switches to another table with a
     drawn count of switches (Poisson, `switch_mean`; an odd count of switches among two tables is a
-    switch); the next table is drawn uniformly among the others. Returns a Corpus."""
+    switch); the next table is drawn uniformly among the others. Returns a Corpus. `draw` and
+    `step` are the world's (the schema's by default; the Markov-chain world's in cocoonml/markov.py,
+    decisions 55): the production is the same in every world, only what a table is differs."""
+    if draw is None or step is None:
+        from cocoonml import schema
+
+        draw = draw or schema.draw
+        step = step or schema.step
     origins = list(tables)
     current = [t for t in origins]
     walks = [[t] for t in origins]
@@ -172,7 +179,7 @@ def distance_from_ball(state_table, ball, phases=True):
     movement to any of them. A check on the reader's axis, never the axis itself. `phases` False
     leaves phase movement out, which no classical artifact carries (schema.delta_magnitude). `ball`
     is a Ball (cached, deduplicated) or any iterable of tables."""
-    if isinstance(ball, Ball):
+    if hasattr(ball, "distance"):  # a Ball, or another world's ball with its own distance (markov.MarkovBall)
         return ball.distance(state_table, phases)
     return min(delta_magnitude(state_table, b, phases) for b in ball)
 
