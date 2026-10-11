@@ -92,3 +92,52 @@ class TestTheParticleFilter(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheMarkovWorld(unittest.TestCase):
+    def chains(self, n=2):
+        from cocoonml.markov import generate
+
+        return [generate(states=3, resolution=8, seed=20 + i) for i in range(n)]
+
+    def test_one_chain_and_no_steps_gives_its_row_inside_an_artifact(self):
+        from cocoonml.markov import draw
+        from cocoonml.reference import MarkovWorld
+
+        (chain,) = self.chains(1)
+        rng = random.Random(1)
+        forms = draw(chain, rng)[0]
+        while len(forms) < 2:
+            forms = draw(chain, rng)[0]
+        tokens = list(forms) + [4] + [4] * (64 - len(forms) - 1)
+        probs = window_predictives(tokens, 4, [chain], 0.0, world=MarkovWorld())
+        row = chain.rows[forms[0] - 1]
+        for state in range(3):
+            self.assertAlmostEqual(probs[0].get(state + 1, 0.0), float(row[state]), places=2)  # the fit in the room moves it a hair
+        self.assertAlmostEqual(probs[0][4], float(row[-1]), places=2)
+        for p in probs:
+            self.assertAlmostEqual(sum(p.values()), 1.0, places=9)
+
+    def test_the_floor_lies_below_the_marginal_on_chains_too(self):
+        from cocoonml.markov import draw, step
+        from cocoonml.reference import MarkovWorld
+
+        chains = self.chains()
+        corpus = produce(chains, random.Random(2), Fraction(3, 16), None, None, 300, 0.0, 0.5, draw=draw, step=step)
+        ws = windows(corpus, 4, 32)
+        counts = token_counts(ws)
+        world = MarkovWorld()
+        bayes = [sum(bayes_losses(t, g, 4, chains, 0.5, world=world)) / len(t) for t, g, _ in ws[:40]]
+        marginal = [sum(marginal_losses(g, counts)) / len(t) for t, g, _ in ws[:40]]
+        self.assertLess(sum(bayes) / len(bayes), sum(marginal) / len(marginal))
+
+    def test_the_particle_filter_steps_chains_with_their_own_step(self):
+        from cocoonml.markov import draw, step
+        from cocoonml.reference import MarkovWorld
+
+        chains = self.chains()
+        corpus = produce(chains, random.Random(3), Fraction(3, 16), None, Fraction(1, 8), 60, 1.0, 0.5, draw=draw, step=step)
+        tokens, targets, _ = windows(corpus, 4, 32)[0]
+        losses = bayes_losses(tokens, targets, 4, chains, 0.5, steps_mean=1.0, bound=Fraction(3, 16), lean=None, radius=Fraction(1, 8), particles=40, rng=random.Random(4), world=MarkovWorld())
+        self.assertEqual(len(losses), len(tokens))
+        self.assertTrue(all(math.isfinite(x) and x >= 0 for x in losses))
