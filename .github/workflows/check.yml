@@ -15,6 +15,10 @@ jobs:
       # has no distribution package, so the same version from PyPI, pinned; no advisory against it
       # (GitHub's database, 2026-10-11). The suite failed to import seven modules without it on
       # every run of this branch since the port.
-      - run: pip install numpy==1.24.2
+      - run: pip install numpy==1.24.2 pyflakes==2.5.0
+      # pyflakes, Debian bookworm's version (the sandbox image has the same): undefined names,
+      # unused imports, the errors Python raises only when the path runs, hours into a cell;
+      # no advisory against it (GitHub's database, 2026-10-11). Nothing is unlinted (Izzy).
+      - run: python3 -m pyflakes cocoonml tests runs
       - run: python3 -m compileall -q cocoonml tests
       - run: python3 -m unittest

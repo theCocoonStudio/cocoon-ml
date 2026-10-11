@@ -14,7 +14,6 @@ and are weighted by the likelihood of each artifact; the estimate converges in t
 a choice marked in the row. The emission of a state is its classical string distribution (the draw
 is classical: schema.draw), the extension marginalised."""
 import math
-import random
 
 from cocoonml.corpus import _poisson
 from cocoonml.schema import classical_joint
