@@ -3,9 +3,10 @@ its cells after it (runs/sweep7.py in mode "cap"), each outcome mapped to the de
 Pure: no I/O; runs/row53.py loads the logs and prints the report. Nothing here reads a curve as a
 result: the output names which decision each outcome maps to, and the numbers it rests on, in the log."""
 import math
+import statistics
 from collections import defaultdict
 
-from cocoonml.rules import BATCH_WINDOWS, ENVELOPE, WINDOW, concordance, crossing, differ_pairwise, onset, rank_sign, readings, second_descent
+from cocoonml.rules import BATCH_WINDOWS, ENVELOPE, WINDOW, concordance, crossing, differ_pairwise, onset, rank_sign, readings, second_descents
 
 EFFECTIVE_COUNT = 30.8  # the cap row's effective string count (decisions 48: the crossings 311, 699, 1 243 at whole 9)
 RUNGS = (0.2, 0.1, 0.05, 0.025)  # the ladder, the same at every size (decisions 53)
@@ -203,9 +204,9 @@ def second_descent_prediction(run_cells, effective_count=EFFECTIVE_COUNT, width=
             continue
         four = 4 * crossing(width, cell["whole"], effective_count)
         reached = cell["train_steps"] >= four
-        step = second_descent(cell["evaluations"], ENVELOPE, after=cell["onset_step"]) if cell.get("onset_step") is not None else None
-        within = step is not None and window_of(four) < window_of(step) <= window_of(four) + DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS
-        out[cell["run"]] = {"radius": train_radius_of(cell), "four_crossings": four, "reached": reached, "descent_step": step, "within": within}
+        steps = second_descents(cell["evaluations"], ENVELOPE, after=cell["onset_step"]) if cell.get("onset_step") is not None else []
+        in_window = [s for s in steps if window_of(four) < window_of(s) <= window_of(four) + DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS]
+        out[cell["run"]] = {"radius": train_radius_of(cell), "four_crossings": four, "reached": reached, "descent_steps": steps, "descent_step": steps[0] if steps else None, "within": bool(in_window)}
     lodged = [entry for entry in out.values() if entry["radius"] == 2 and entry["reached"]]
     return {"cells": out, "radius_2_reaching": len(lodged), "fires": any(entry["within"] for entry in lodged), "unread": not lodged}
 
@@ -224,6 +225,8 @@ def references_check(run_cells, references):
         if ref is None or not cell["evaluations"]:
             continue
         first = cell["evaluations"][0]
+        before_onset = cell["evaluations"][: (cell["onset_step"] // WINDOW - 1)] if cell.get("onset_step") else cell["evaluations"]
+        plateau = statistics.median(before_onset) if len(before_onset) >= 2 else first  # the level the cell sits at before its onset; the first evaluation sits above it (53, third form (2))
         best = cell.get("copies", {}).get("best")
         if best is not None and best.get("step"):
             best_loss = cell["evaluations"][best["step"] // WINDOW - 1]
@@ -231,7 +234,7 @@ def references_check(run_cells, references):
             best_loss = min(cell["evaluations"][cell["onset_step"] // WINDOW - 1 :])
         else:
             best_loss = None
-        out[cell["run"]] = {"first": first, "at_marginal": abs(first - ref["marginal"]) <= ENVELOPE, "best": best_loss, "below_floor": best_loss is not None and best_loss < ref["floor"], "marginal": ref["marginal"], "floor": ref["floor"]}
+        out[cell["run"]] = {"first": first, "plateau": plateau, "at_marginal": abs(plateau - ref["marginal"]) <= ENVELOPE, "best": best_loss, "below_floor": best_loss is not None and best_loss < ref["floor"], "marginal": ref["marginal"], "floor": ref["floor"]}
     return out
 
 
@@ -290,15 +293,15 @@ def report(result):
     pred4 = result["second_descent_prediction"]
     lines.append(f"prediction (4), a second descent within {DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS} windows after four crossings in a radius-2 (96, 7) cell: " + ("unread (no radius-2 cell reached four crossings)" if pred4["unread"] else ("fires" if pred4["fires"] else "fails: the cap's unit loses one of its two supports (second form (iii)); the other, the onsets selecting the 39.6-bit count (48), stands or falls with prediction (3)")) + "; maps into decision 48's next form (decision (e))")
     for name, entry in sorted(pred4["cells"].items()):
-        lines.append(f"  {name} (radius {entry['radius']}): four crossings {entry['four_crossings']}, {'reached' if entry['reached'] else 'not reached'}; descent {entry['descent_step']}; {'within' if entry['within'] else 'not within'}")
+        lines.append(f"  {name} (radius {entry['radius']}): four crossings {entry['four_crossings']}, {'reached' if entry['reached'] else 'not reached'}; descents at {entry['descent_steps'] or 'none'}; {'one within' if entry['within'] else 'none within'} windows {window_of(entry['four_crossings']) + 1} to {window_of(entry['four_crossings']) + DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS}")
     refs = result.get("references") or {}
     lines.append("")
     if refs:
         at = sum(1 for e in refs.values() if e["at_marginal"])
         below = [n for n, e in refs.items() if e["below_floor"]]
-        lines.append(f"decisions 54 beside the tests: {at} of {len(refs)} cells start at the marginal level (first evaluation within the envelope of it); " + (f"FAILS-IF: best held loss below the floor at {', '.join(below)}" if below else "no cell's best held loss lies below the floor"))
+        lines.append(f"decisions 54 beside the tests: {at} of {len(refs)} cells' plateaus before the onset sit at the marginal level (within the envelope; the first evaluation sits above the plateau, 53 third form (2)); " + (f"FAILS-IF: best held loss below the floor at {', '.join(below)}" if below else "no cell's best held loss lies below the floor"))
         for name, e in sorted(refs.items()):
-            lines.append(f"  {name}: first {e['first']:.4f} against marginal {e['marginal']:.4f} ({'at' if e['at_marginal'] else 'off'}); best {e['best'] if e['best'] is None else round(e['best'], 4)} against floor {e['floor']:.4f}")
+            lines.append(f"  {name}: plateau {e['plateau']:.4f} (first {e['first']:.4f}) against marginal {e['marginal']:.4f} ({'at' if e['at_marginal'] else 'off'}); best {e['best'] if e['best'] is None else round(e['best'], 4)} against floor {e['floor']:.4f}")
     else:
         lines.append("decisions 54 beside the tests: no reference logs given")
     return "\n".join(lines)
