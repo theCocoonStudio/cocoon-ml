@@ -153,6 +153,6 @@ else:
     read_copy = "best" if copies["best"] is not None else "marginal"
     line["read_copy"] = read_copy
     if line["copies"][read_copy] is not None:
-        line.update({key: line["copies"][read_copy][key] for key in ("same", "held", "points", "probe_r2_truth_distance", "probe_r2_rank")})
+        line.update({key: line["copies"][read_copy][key] for key in ("same", "held", "points", "probe_r2_truth_distance", "probe_r2_rank", "circuits")})
 line["seconds"] = round(time.time() - t0, 1)
 print(json.dumps(line))
