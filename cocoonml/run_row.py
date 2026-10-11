@@ -71,7 +71,7 @@ def ladder(cells):
     any_onset = any(by_rung[lr].get("onset_step") is not None for lr in by_rung)
     at_pass_bound = pass_bound(next(iter(by_rung.values())))
     if discordant:
-        decision = "(d): a discordant pair; the escape is not a function of the rate alone at this size, and the search needs the seed axis there: decision 5 reconsidered for the rate only, a row for Izzy"
+        decision = "(d): a discordant pair; the escape step is not monotone in the rate at this size (second form (v): at one seed it is a function of the rate by construction, so what fails is monotonicity), and the search needs the seed axis there: decision 5 reconsidered for the rate only, a row for Izzy"
     elif before_onset and all(before_onset.values()):
         decision = "every rung escapes before its onset: the ladder extends down one halving at this size (test (1), kept from the first form)"
     elif not any_onset:
@@ -213,8 +213,31 @@ def second_descent_prediction(run_cells, effective_count=EFFECTIVE_COUNT, width=
 # --- The row over the record ---------------------------------------------------------------------
 
 
-def apply_row(run_cells, flat_cells, radii=(1, 2)):
-    """Every test of decisions 53 over the run's cells, with the flat cells of the record for the null."""
+def references_check(run_cells, references):
+    """Decisions 54 read beside 53's tests: `references` maps a radius to {"marginal": mean, "floor": mean} from
+    the reference logs. Per cell: whether its first evaluation sits at the marginal level (within the envelope),
+    and whether its best held loss (at the best copy's step, or the least evaluation after the onset) lies below
+    the floor on the same windows, which is 54's Fails-if."""
+    out = {}
+    for cell in run_cells:
+        ref = references.get(train_radius_of(cell))
+        if ref is None or not cell["evaluations"]:
+            continue
+        first = cell["evaluations"][0]
+        best = cell.get("copies", {}).get("best")
+        if best is not None and best.get("step"):
+            best_loss = cell["evaluations"][best["step"] // WINDOW - 1]
+        elif cell.get("onset_step") is not None:
+            best_loss = min(cell["evaluations"][cell["onset_step"] // WINDOW - 1 :])
+        else:
+            best_loss = None
+        out[cell["run"]] = {"first": first, "at_marginal": abs(first - ref["marginal"]) <= ENVELOPE, "best": best_loss, "below_floor": best_loss is not None and best_loss < ref["floor"], "marginal": ref["marginal"], "floor": ref["floor"]}
+    return out
+
+
+def apply_row(run_cells, flat_cells, radii=(1, 2), references=None):
+    """Every test of decisions 53 over the run's cells, with the flat cells of the record for the null, and
+    decisions 54's references beside them when given."""
     checks = {cell["run"]: onset_check(cell) for cell in run_cells}
     ladders = {}
     for radius in radii:
@@ -229,6 +252,7 @@ def apply_row(run_cells, flat_cells, radii=(1, 2)):
         "replication": {radius: replication(run_cells, flat_cells, radius) for radius in radii},
         "onset_prediction": onset_prediction(run_cells),
         "second_descent_prediction": second_descent_prediction(run_cells),
+        "references": references_check(run_cells, references or {}),
     }
 
 
@@ -245,21 +269,36 @@ def report(result):
     lines.append("")
     lines.append("test (2), replication by size (R4) on the comparable cells:")
     for radius, rep in sorted(result["replication"].items()):
-        lines.append(f"  radius {radius}: null sizes per key {rep['null_size']}; best rung per size {rep['best_rung']}")
+        lines.append(f"  radius {radius}: null sizes per key {rep['null_size']}; keys at this radius {len(rep['null_size'])} (second form (iv): the count of counting keys is read against it); best rung per size {rep['best_rung']}")
         for lr, comparison in sorted(rep["matched"].items(), reverse=True):
-            lines.append(f"    matched rung {lr}: " + ("not comparable" if comparison is None else f"{rep['matched_verdicts'][lr]} ({', '.join(f'{k} {v}' for k, v in comparison.items() if k != '_counting_sizes' and v is not None) or 'no counting key'})"))
+            if comparison is None:
+                lines.append(f"    matched rung {lr}: not comparable")
+            else:
+                entering = {k: v for k, v in comparison.items() if k != "_counting_sizes" and v is not None}
+                one_size = [k for k, n in comparison["_counting_sizes"].items() if n == 1]
+                lines.append(f"    matched rung {lr}: {rep['matched_verdicts'][lr]} ({len(entering)} of {len(rep['null_size'])} keys count: {', '.join(f'{k} {v}' for k, v in entering.items()) or 'none'}{'; counting at one size only, abstaining: ' + ', '.join(one_size) if one_size else ''})")
         lines.append(f"    best rungs: " + ("not comparable at this budget" if rep["at_best_rung"] is None else f"{rep['best_rung_verdict']} ({', '.join(f'{k} {v}' for k, v in rep['at_best_rung'].items() if k != '_counting_sizes' and v is not None) or 'no counting key'})"))
         lines.append(f"    {rep['decision']}")
     lines.append("")
     pred3 = result["onset_prediction"]
-    lines.append(f"prediction (3), the onset no later than {ONSET_WINDOWS_AFTER_CROSSING} windows after the crossing: " + ("unread (no cell learned)" if pred3["unread"] else ("fires" if pred3["fires"] else "fails")))
+    lines.append(f"prediction (3), the onset no later than {ONSET_WINDOWS_AFTER_CROSSING} windows after the crossing: " + ("unread (no cell learned)" if pred3["unread"] else ("fires" if pred3["fires"] else "fails")) + "; maps into decision 48's next form (decision (e))")
     for name, entry in sorted(pred3["cells"].items()):
         lines.append(f"  {name}: onset {entry['onset_step']} (window {entry['onset_window']}), crossing {entry['crossing']} (window {entry['crossing_window']}): {'met' if entry['met'] else 'NOT met'}")
     if pred3["fails_at_largest"]:
         lines.append(f"  the Fails-if arm: at {PASS_BOUND_SIZE} the onset lies more than {ONSET_WINDOWS_AFTER_CROSSING} windows after the crossing at every rung that learns; the crossing is not the onset's clock at the third size")
     lines.append("")
     pred4 = result["second_descent_prediction"]
-    lines.append(f"prediction (4), a second descent within {DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS} windows after four crossings in a radius-2 (96, 7) cell: " + ("unread (no radius-2 cell reached four crossings)" if pred4["unread"] else ("fires" if pred4["fires"] else "fails: (c)'s was a coincidence and the cap's unit loses its one support")))
+    lines.append(f"prediction (4), a second descent within {DESCENT_WINDOWS_AFTER_FOUR_CROSSINGS} windows after four crossings in a radius-2 (96, 7) cell: " + ("unread (no radius-2 cell reached four crossings)" if pred4["unread"] else ("fires" if pred4["fires"] else "fails: the cap's unit loses one of its two supports (second form (iii)); the other, the onsets selecting the 39.6-bit count (48), stands or falls with prediction (3)")) + "; maps into decision 48's next form (decision (e))")
     for name, entry in sorted(pred4["cells"].items()):
         lines.append(f"  {name} (radius {entry['radius']}): four crossings {entry['four_crossings']}, {'reached' if entry['reached'] else 'not reached'}; descent {entry['descent_step']}; {'within' if entry['within'] else 'not within'}")
+    refs = result.get("references") or {}
+    lines.append("")
+    if refs:
+        at = sum(1 for e in refs.values() if e["at_marginal"])
+        below = [n for n, e in refs.items() if e["below_floor"]]
+        lines.append(f"decisions 54 beside the tests: {at} of {len(refs)} cells start at the marginal level (first evaluation within the envelope of it); " + (f"FAILS-IF: best held loss below the floor at {', '.join(below)}" if below else "no cell's best held loss lies below the floor"))
+        for name, e in sorted(refs.items()):
+            lines.append(f"  {name}: first {e['first']:.4f} against marginal {e['marginal']:.4f} ({'at' if e['at_marginal'] else 'off'}); best {e['best'] if e['best'] is None else round(e['best'], 4)} against floor {e['floor']:.4f}")
+    else:
+        lines.append("decisions 54 beside the tests: no reference logs given")
     return "\n".join(lines)
