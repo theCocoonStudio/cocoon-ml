@@ -78,7 +78,7 @@ class TestTheParticleFilter(unittest.TestCase):
         ws = toy_windows()[:6]
         exact = [sum(bayes_losses(t, g, SEP, tables(), 0.5)) / len(t) for t, g, _ in ws]
         rng = random.Random(3)
-        sampled = [sum(bayes_losses(t, g, SEP, tables(), 0.5, steps_mean=1e-12, bound=BOUND, lean=LEAN, radius=1, particles=400, rng=rng)) / len(t) for t, g, _ in ws]
+        sampled = [sum(bayes_losses(t, g, SEP, tables(), 0.5, steps_mean=1e-12, bound=BOUND, lean=LEAN, radius=1, particles=400, rng=rng, burn_in=0)) / len(t) for t, g, _ in ws]  # with vanishing steps the burn-in is the pulled walk's; off, so only the switching is sampled
         self.assertLess(abs(sum(exact) - sum(sampled)) / len(ws), 0.05)
 
     def test_with_drift_it_runs_finite_and_deterministic_under_the_seed(self):
@@ -141,3 +141,70 @@ class TestTheMarkovWorld(unittest.TestCase):
         losses = bayes_losses(tokens, targets, 4, chains, 0.5, steps_mean=1.0, bound=Fraction(3, 16), lean=None, radius=Fraction(1, 8), particles=40, rng=random.Random(4), world=MarkovWorld())
         self.assertEqual(len(losses), len(tokens))
         self.assertTrue(all(math.isfinite(x) and x >= 0 for x in losses))
+
+
+class TestTheSecondFormOfTheReferences(unittest.TestCase):
+    """Methuselah's three objections of 2026-10-11 (decisions 54, second form)."""
+
+    def test_at_room_zero_the_predictive_still_sums_to_one(self):
+        from cocoonml.reference import string_distribution
+
+        (table,) = tables(1)
+        two = next(forms for forms in string_distribution(table) if len(forms) == 2)
+        tokens = list(two) + [SEP]  # a window of exactly three tokens, filled: at the last position the room is zero
+        probs = window_predictives(tokens, SEP, [table], 0.0)
+        self.assertAlmostEqual(sum(probs[-1].values()), 1.0, places=9)
+        self.assertAlmostEqual(probs[-1][SEP], 1.0, places=9)  # only padding can follow
+
+    def test_the_leftover_distribution_and_the_first_artifact_s_weights(self):
+        from cocoonml.reference import first_length_weights, leftover_distribution
+
+        ws = toy_windows(count=200, length=16)
+        q = leftover_distribution(ws, 16)
+        self.assertAlmostEqual(sum(q.values()), 1.0)
+        self.assertTrue(all(0 <= r < 16 for r in q))
+        w = first_length_weights({0: 0.5, 3: 0.5})
+        self.assertEqual(w(0), 0.5)  # a length of zero fits only a leftover of zero
+        self.assertEqual(w(3), 1.0)
+        self.assertIsNone(first_length_weights(None))
+
+    def test_the_first_artifact_s_length_prior_follows_the_leftovers_and_the_rest_is_unchanged(self):
+        # the record's own table shape (forms 4, nonterminals 3): strings of two and five forms share first forms, so the conditioning can show
+        table = generate(forms=4, cuts=2, nonterminals=3, resolution=4, seed=10, graded=True)
+        sep = 5
+        corpus = produce([table], random.Random(1), Fraction(3, 8), Fraction(3, 4), None, 400, 0.0, 0.5)
+        tokens, _, used = next(w for w in windows(corpus, sep, 64) if len(w[2][0].forms) == 2)  # a window whose first artifact has two forms
+        unconditioned = window_predictives(tokens, sep, [table], 0.0)
+        with self.assertRaises(ValueError):
+            window_predictives(tokens, sep, [table], 0.0, leftovers={3: 1.0})  # a two-form first artifact is impossible when every leftover is three
+        conditioned = window_predictives(tokens, sep, [table], 0.0, leftovers={0: 0.5, 3: 0.5})  # half the windows admit any length, half need three forms
+        for p in conditioned:
+            self.assertAlmostEqual(sum(p.values()), 1.0, places=9)
+        # after the first artifact's two forms, ending is less likely under the conditioning (the five-form continuations gain), and still possible
+        self.assertGreater(conditioned[1][sep], 0.0)
+        self.assertLess(conditioned[1][sep], unconditioned[1][sep] - 0.05)
+        boundary = tokens.index(sep)
+        for a, b in zip(unconditioned[boundary + 1 :], conditioned[boundary + 1 :]):  # after its separator the two agree position by position
+            for k in set(a) | set(b):
+                self.assertAlmostEqual(a.get(k, 0.0), b.get(k, 0.0), places=9)
+
+    def test_the_markov_world_s_first_artifact_weights_sum_to_one(self):
+        from cocoonml.markov import generate
+        from cocoonml.reference import MarkovWorld
+
+        chain = generate(states=3, resolution=8, seed=21)
+        tokens = [1, 2, 4, 3, 4] + [4] * 11
+        probs = window_predictives(tokens, 4, [chain], 0.0, world=MarkovWorld(), leftovers={0: 0.4, 2: 0.6})
+        for p in probs:
+            self.assertAlmostEqual(sum(p.values()), 1.0, places=6)
+
+    def test_the_burn_in_starts_the_particles_off_the_origin(self):
+        from cocoonml.reference import SchemaWorld, _Hypothesis  # noqa: F401
+        from cocoonml.schema import delta
+
+        ws = toy_windows(steps_mean=1.0, radius=1)[:1]
+        tokens, targets, _ = ws[0]
+        a = bayes_losses(tokens, targets, SEP, tables(), 0.5, steps_mean=1.0, bound=BOUND, lean=LEAN, radius=1, particles=30, rng=random.Random(9), burn_in=0)
+        b = bayes_losses(tokens, targets, SEP, tables(), 0.5, steps_mean=1.0, bound=BOUND, lean=LEAN, radius=1, particles=30, rng=random.Random(9), burn_in=50)
+        self.assertNotEqual(a, b)  # the burned-in particles sit on other states
+        self.assertTrue(all(math.isfinite(x) for x in a + b))
