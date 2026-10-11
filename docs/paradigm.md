@@ -18,7 +18,7 @@ A measurement is real input through an instrument you built, biased by the build
 - A measurement needs an instance of a local physics, interacting dimensions within it, the fictitious dimension born of their intersection, and a dimension composed partly of that fictitious one whose change is what is measured. (Izzy, with Gemini, 2026-10-04; the same shape as the September "3+1": the minimal rank for a phase, plus one to perceive it.)
 - Density is information over data. At density 1 spin is infinite and the system is a single node one level up (the aleph step). A self-intersection unlocks information; a mutual intersection is a node. Asymmetry is the engine of resolution change. (Izzy, 2026-10-04.)
 
-Where the September and October formulations differ, the difference is recorded, not resolved: a node as a mutual intersection (October) against the informational point as a vantage outcome (September). The full notes, with axioms, definitions, propositions, the withdrawn rules and the disproof list, are in Claude's memory and in the records; they move into a repo of their own when Izzy opens it.
+Where the September and October formulations differ, the difference is recorded, not resolved: a node as a mutual intersection (October) against the informational point as a vantage outcome (September). The full notes, with axioms, definitions, propositions, the withdrawn rules and the disproof list, were in Claude's memory and the records until the physics got its repo, cocoon-relations, where the framework, the notes and the vantage cost theorem now live; O2 (composition) is its open next step.
 
 ## The three distinctions
 
@@ -37,8 +37,8 @@ Legacy: heavy build, then a lookup at runtime; a fixed space with static geometr
 ## What cocoon-ml builds, in order
 
 1. Autograd, scalar (done: PR #6). The chain rule walked backward over a graph, accumulation for reused values, checked against finite differences.
-2. Tensors, then a transformer at nanoGPT scale on Izzy's data, then the seams: tokenization, fixed-window attention, no persistent state, split objectives.
-3. The spec of the replacement, with the dimension named before the model exists and the baseline runnable at the same compute.
+2. Softmax cross-entropy from primitives (PR #9), then, instead of the nanoGPT baseline this list named, the first unsolved problem (concept 03, in-context learning, posed 2026-10-07): the drift test, both predictions lodged before any run, and the apparatus built for it on the array model (the schema, the corpus layer, the derived size and initialisation, the rule table, the statistical layer of decisions 53, whose run is sweep 07e). The seams (tokenization, fixed-window attention, no persistent state, split objectives) are named where the apparatus meets them.
+3. The spec of the replacement, with the dimension named before the model exists and the baseline runnable at the same compute. Since 2026-10-10 the program carries a bridge to the field as it goes (`docs/literature.md`): others' results replicated within our model, other models explained within ours.
 
 Izzy, 2026-10-09 20:43, right after the closure line on the concept page (verbatim): "that's why the orchestrator has to be built into the autograd, my first js implementation." Then: "there's the project,". Asked whether Claude understood how this pushes ML, Izzy (verbatim): "you use the same nodes for storage. the orchestration allows many agents to operate on the same system." Claude's reading, marked: the autograd's graph as a closure structure, each node holding its references and its value at once, with the orchestrator (the top-level function that invokes the others; the JIT choice of the computation's weights, 2026-09-16) inside the graph rather than above it; many agents on one system is many inner functions over one outer scope, the same nodes read at different costs. The JS Autograd.js of September, with its JIT topology and state machine (issue #4), was the first reach at this. Read against the list above: step 2 is the baseline and step 3's replacement is this autograd, whose spec starts from Izzy's line. Whether it solves anything is graded by the first run, nothing earlier.
 
@@ -63,4 +63,4 @@ The crew's use settled the same evening: on a short task the project agents (Met
 
 ## Where the record is
 
-The private records repo holds every session: Claude's under `claude/exports/`, Gemini's under `gemini/exports/`. Claude's memory holds the physics notes and the framework draft until the physics has a repo.
+The private records repo holds every session: Claude's under `claude/exports/`, Gemini's under `gemini/exports/`. The physics is in cocoon-relations.
