@@ -11,10 +11,9 @@ switches between tables are drawn, not counted (Poisson counts around a mean).
 """
 
 import math
-import random
 from dataclasses import dataclass
 
-from cocoonml.schema import delta_magnitude, draw, estimate_shares, step
+from cocoonml.schema import delta_magnitude, estimate_shares
 
 
 def _poisson(rng, mean):

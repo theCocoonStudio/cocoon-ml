@@ -280,7 +280,7 @@ def report(result):
                 entering = {k: v for k, v in comparison.items() if k != "_counting_sizes" and v is not None}
                 one_size = [k for k, n in comparison["_counting_sizes"].items() if n == 1]
                 lines.append(f"    matched rung {lr}: {rep['matched_verdicts'][lr]} ({len(entering)} of {len(rep['null_size'])} keys count: {', '.join(f'{k} {v}' for k, v in entering.items()) or 'none'}{'; counting at one size only, abstaining: ' + ', '.join(one_size) if one_size else ''})")
-        lines.append(f"    best rungs: " + ("not comparable at this budget" if rep["at_best_rung"] is None else f"{rep['best_rung_verdict']} ({', '.join(f'{k} {v}' for k, v in rep['at_best_rung'].items() if k != '_counting_sizes' and v is not None) or 'no counting key'})"))
+        lines.append("    best rungs: " + ("not comparable at this budget" if rep["at_best_rung"] is None else f"{rep['best_rung_verdict']} ({', '.join(f'{k} {v}' for k, v in rep['at_best_rung'].items() if k != '_counting_sizes' and v is not None) or 'no counting key'})"))
         lines.append(f"    {rep['decision']}")
     lines.append("")
     pred3 = result["onset_prediction"]
