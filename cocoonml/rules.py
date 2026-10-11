@@ -325,13 +325,11 @@ def onset(evaluations, envelope=ENVELOPE, persistence=2, window=WINDOW):
     return None
 
 
-def second_descent(evaluations, envelope=ENVELOPE, plateau=6, persistence=2, window=WINDOW, after=None):
-    """Prediction (4)'s predicate (third form (7)): a plateau of `plateau` evaluations, each within the
-    envelope of their median (held, not still falling: the clause that makes the descent a second
-    one, a choice marked here), followed by `persistence` consecutive evaluations below that median
-    by more than the envelope; returns the step of the first of them, or None. With `after` (the
-    cell's onset step), only plateaus whose first evaluation lies after it count, so the marginal
-    plateau before the onset is not read as a plateau and the onset's own descent is not a second one."""
+def second_descents(evaluations, envelope=ENVELOPE, plateau=6, persistence=2, window=WINDOW, after=None):
+    """Every step at which a second descent begins (the predicate of second_descent, every qualifying
+    position rather than the first), in order; empty if none (Methuselah, 2026-10-11, round one on the
+    record: a cell whose first second descent is early could never read "within" a later window)."""
+    out = []
     for j in range(plateau, len(evaluations) - persistence + 1):
         if after is not None and window * (j - plateau + 1) <= after:
             continue
@@ -339,8 +337,19 @@ def second_descent(evaluations, envelope=ENVELOPE, plateau=6, persistence=2, win
         if any(abs(e - level) > envelope for e in evaluations[j - plateau : j]):
             continue
         if all(level - evaluations[j + k] > envelope for k in range(persistence)):
-            return window * (j + 1)
-    return None
+            out.append(window * (j + 1))
+    return out
+
+
+def second_descent(evaluations, envelope=ENVELOPE, plateau=6, persistence=2, window=WINDOW, after=None):
+    """Prediction (4)'s predicate (third form (7)): a plateau of `plateau` evaluations, each within the
+    envelope of their median (held, not still falling: the clause that makes the descent a second
+    one, a choice marked here), followed by `persistence` consecutive evaluations below that median
+    by more than the envelope; returns the step of the first of them, or None. With `after` (the
+    cell's onset step), only plateaus whose first evaluation lies after it count, so the marginal
+    plateau before the onset is not read as a plateau and the onset's own descent is not a second one."""
+    found = second_descents(evaluations, envelope, plateau, persistence, window, after)
+    return found[0] if found else None
 
 
 def concordance(escapes):

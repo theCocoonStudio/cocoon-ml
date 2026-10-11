@@ -134,6 +134,12 @@ class TestThePredictions(unittest.TestCase):
         self.assertEqual(pred["cells"][fires["run"]]["descent_step"], 1450)
         self.assertTrue(pred["cells"][fires["run"]]["within"])
         self.assertTrue(pred["fires"])
+        # an early second descent followed by one in the window: the later one counts (Methuselah, round one on the record)
+        early_then_within = [1.30, 1.29, 1.20, 1.10] + [1.1] * 6 + [1.0, 0.99] + [0.99] * 14 + [0.95, 0.9] + [0.9] * 3  # descents at 550 and at 1350 (window 27)
+        two = run_cell(96, 7, 2, 0.05, early_then_within, onset=150)
+        cell_pred = second_descent_prediction([two])["cells"][two["run"]]
+        self.assertEqual(len(cell_pred["descent_steps"]), 2)
+        self.assertTrue(cell_pred["within"])
         short = run_cell(96, 7, 2, 0.1, LEARNED_EVALS, onset=150, escape=400)
         self.assertTrue(second_descent_prediction([short])["unread"])  # four crossings not reached
         radius_one = run_cell(96, 7, 1, 0.05, evals, onset=150)
@@ -163,9 +169,10 @@ class TestTheReferencesBesideTheTests(unittest.TestCase):
     def test_a_cell_at_the_marginal_and_above_the_floor_is_read_as_such(self):
         from cocoonml.run_row import references_check
 
-        cell = run_cell(96, 7, 1, 0.05, [1.29, 1.28, 1.20, 1.10, 1.05, 1.00], onset=150)
+        cell = run_cell(96, 7, 1, 0.05, [1.33, 1.28, 1.20, 1.10, 1.05, 1.00], onset=150)  # the first evaluation above the plateau; the plateau before the onset is the two first evaluations' median
         cell["copies"]["best"]["step"] = 300
         out = references_check([cell], {1: {"marginal": 1.281, "floor": 0.60}})
+        self.assertAlmostEqual(out[cell["run"]]["plateau"], 1.305)
         self.assertTrue(out[cell["run"]]["at_marginal"])
         self.assertEqual(out[cell["run"]]["best"], 1.00)
         self.assertFalse(out[cell["run"]]["below_floor"])
