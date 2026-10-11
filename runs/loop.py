@@ -8,14 +8,15 @@
 # aside under a stamp so its numbers stay. The loop itself imports cocoonml.rules, so run it with
 # PYTHONPATH at the archive too. Numbers stay in the cell logs (the rule); the entry carries none.
 # Usage: loop.py <archive_dir> <log_dir> <width> <layers> <length> <corpus> <read_size> <cap> <lr: one rate, or one per size a,b,c> <train_radii: a,b> [max_iterations=6] [loop_log=runs/loop-log.md] [prefix=sweep-07]
-# The rate is per size (decisions 40): R1 names the cells that fired and the loop halves the rate of each of their sizes and re-runs those cells only.
+# The rate is per size (decisions 40) and every entry logs the rates per size (Buridan's debt, decisions 53); since decisions 53 R1 halves nothing
+# at run time (the ladder of rates is the search, a divergence is a reading) and the loop launches no ladder: the run's row launches by script.
 import os
 import subprocess
 import sys
 from dataclasses import replace
 from datetime import datetime
 
-from cocoonml.rules import Ensemble, Vector, apply_rows, cell_at, cell_command, cell_name, host_exceeds, log_entry, next_size, parse_cell, sizes, sizes_that_fired_r1
+from cocoonml.rules import Ensemble, Vector, apply_rows, cell_at, cell_command, cell_name, host_exceeds, log_entry, next_size, parse_cell, sizes
 
 # The ensemble is not a parameter of the loop (docs/rules.md: the antecedent of the predictions,
 # moved by no row); these are sweep 07's values from runs/README.md. The training radii come from
@@ -90,13 +91,9 @@ if __name__ == "__main__":
         row, following, detail = apply_rows(cells, train_radii, vector, mean_artifacts_per_window)
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if row == "stop":
-            write(log_entry(stamp, vector, current, cells, row, detail, None))
+            write(log_entry(stamp, vector, current, cells, row, detail, None, rates))
             break
-        if row == "R1":
-            for size in sizes_that_fired_r1(cells):
-                rates[size] = rates.get(size, vector.lr) / 2  # that size's rate halves; its cells re-run (the others resume by cell_at)
-            coming = current
-        elif row == "R4":
+        if row == "R4":
             coming = [current[1], current[2], next_size(*current[2])]
             following = replace(vector, width=coming[0][0], layers=coming[0][1])
         else:
@@ -105,9 +102,9 @@ if __name__ == "__main__":
         last_seconds = max(cells[(train_radius, largest[0])]["seconds"] for train_radius in train_radii)
         exceeds, host_detail = host_exceeds(last_seconds, largest[0], largest[1], coming[-1][0], coming[-1][1])
         if exceeds:
-            write(log_entry(stamp, vector, current, cells, "host", f"{row} still fires ({detail}); {host_detail}", None))
+            write(log_entry(stamp, vector, current, cells, "host", f"{row} still fires ({detail}); {host_detail}", None, rates))
             break
-        write(log_entry(stamp, vector, current, cells, row, detail, following))
+        write(log_entry(stamp, vector, current, cells, row, detail, following, rates))
         vector, current = following, coming
     else:
         print(f"iteration limit {max_iterations} reached; the vector stands at {vector} over sizes {current}", flush=True)
