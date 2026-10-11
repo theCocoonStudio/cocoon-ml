@@ -325,6 +325,79 @@ def train_until_plateau(model, make_batch, lr, window=50, tolerance=0.01, cap=20
     return losses, evaluations
 
 
+# --- Training to the cap with no rule (decisions 53: the run's row) -----------------------------
+# The budget is the only online decision: every cell runs to its cap or its escape (the first
+# non-finite loss), no stopping rule, and three copies of the parameters are kept so that no
+# reading is taken at a stop and nothing is thrown away: at the first evaluation (the marginal
+# copy), at the best held evaluation after the onset (the best copy, ties to the first), and at the
+# last evaluation whose held loss was finite (the last copy, kept and not read by the row).
+
+
+class Copy:
+    """A copy of a model's parameters at a step: `blocks` are deep copies of model.blocks()."""
+
+    def __init__(self, model, step, held):
+        self.step, self.held = step, held
+        self.blocks = [block.copy() for block in model.blocks()]
+
+    def load_into(self, model):
+        """Writes the copy's values into the model's arrays (the arrays themselves, so views stay valid)."""
+        for target, source in zip(model.blocks(), self.blocks):
+            target[...] = source
+
+
+def train_to_cap(model, make_batch, lr, cap, evaluate, onset, window=50, lookback=1):
+    """Train on make_batch() to the cap or the first non-finite loss, the held loss read every
+    `window` steps, no stopping rule. `onset(evaluations)` is the row's predicate: the step at which
+    the trajectory left the marginal, or None so far. Returns a dict: `losses` (every batch loss),
+    `evaluations` (every held loss, NaN where the step overflowed), `escape_step` (the step of the
+    first non-finite loss, or None), `onset_step`, and `copies`: `marginal` at the first evaluation,
+    `best` at the lowest held evaluation at or after the onset (ties to the earliest; None without an
+    onset), `last` at the last evaluation whose held loss was finite (None if none was). The copy at
+    the window the onset will name is kept while the predicate waits for its persistence (one extra
+    copy at most), so the best copy can be the onset's own window; `lookback` is how many such
+    windows are kept, the predicate's persistence less one. The predicate must count steps in this
+    harness's windows (its `window` the same), or the onset would name a step no copy has."""
+    losses, evaluations = [], []
+    copies = {"marginal": None, "best": None, "last": None}
+    pending = []  # copies at windows past the first that may still be named the onset's or the best
+    escape = None
+    onset_step = None
+    while len(losses) < cap:
+        losses.append(model.train_step(make_batch(), lr))
+        step = len(losses)
+        if not math.isfinite(losses[-1]):
+            escape = step
+            break  # the escape: a reading for the ladder, not a re-run (decisions 53 (b))
+        if step % window:
+            continue
+        held = evaluate()
+        evaluations.append(held)
+        if not math.isfinite(held):
+            escape = escape or step  # a NaN held evaluation records the escape (the debt named in the row)
+            break
+        copy = Copy(model, step, held)
+        copies["last"] = copy
+        if copies["marginal"] is None:
+            copies["marginal"] = copy
+            continue
+        if onset_step is None:
+            pending.append(copy)
+            onset_step = onset(evaluations)
+            if onset_step is None:
+                pending = pending[-lookback:]  # the windows the predicate may still name
+                continue
+            for kept in pending:  # the onset is named: the best is the lowest at or after it
+                if kept.step >= onset_step and (copies["best"] is None or kept.held < copies["best"].held):
+                    copies["best"] = kept
+            if copies["best"] is None:
+                raise ValueError(f"the onset names step {onset_step} but the kept copies are at {[c.step for c in pending]}: the predicate's window or persistence differs from the harness's")
+            pending = []
+        elif held < copies["best"].held:
+            copies["best"] = copy
+    return {"losses": losses, "evaluations": evaluations, "escape_step": escape, "onset_step": onset_step, "copies": copies}
+
+
 # --- The scrambled-pairs control (sweep 04 round one, item 2) -----------------------------------
 # A drop of the meaning loss after the first artifact could be the pairs being read, or the first
 # position being special. The control: the same context with the extension tokens of the input
