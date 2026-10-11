@@ -20,9 +20,11 @@ if [ "$DRY" = "--dry-run" ]; then
   exit 0
 fi
 mkdir -p "$LOGS/copies"
-cells | while read -r name steps; do
+# a for loop, not a pipe into while: a pipe runs the loop in a subshell and `wait` in the parent would
+# return at once (the first launch, 2026-10-11 05:03, printed "both cells ended" with both running)
+while read -r name steps; do
   echo "$(date '+%Y-%m-%d %H:%M:%S') start $name"
   bash -c "$(command_for "$name" "$steps") < /dev/null" &
-done
+done <<< "$(cells)"
 wait
 echo "$(date '+%Y-%m-%d %H:%M:%S') launch-08: both cells ended"
