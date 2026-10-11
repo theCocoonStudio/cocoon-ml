@@ -41,6 +41,14 @@ class TestTheSecondDescent(unittest.TestCase):
         self.assertEqual(second_descent(marginal_then_learning, envelope=0.0378), 400)  # without the onset, the first descent reads as one
         self.assertIsNone(second_descent(marginal_then_learning, envelope=0.0378, after=400))
 
+    def test_every_second_descent_is_listed_in_order(self):
+        from cocoonml.rules import second_descents
+
+        plateau = [1.09] * 6
+        trajectory = [1.3, 1.25, 1.15] + plateau + [1.0, 1.0] + [1.0] * 6 + [0.9, 0.9]
+        self.assertEqual(second_descents(trajectory, envelope=0.0378), [500, 900])
+        self.assertEqual(second_descent(trajectory, envelope=0.0378), 500)
+
     def test_a_single_low_window_is_not_a_descent(self):
         self.assertIsNone(second_descent([1.09] * 6 + [1.0, 1.09, 1.09], envelope=0.0378))
 
