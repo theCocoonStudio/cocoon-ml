@@ -10,7 +10,7 @@ import json, random, sys, time
 from fractions import Fraction
 
 from cocoonml.attention import Attention
-from cocoonml.harness import extension_grain, contexts_meaning, drifted, filled, form_loss_by_rank, scramble_extensions, train_until_plateau, stream, extension_vocabulary
+from cocoonml.harness import extension_grain, drifted, filled, form_loss_by_rank, scramble_extensions, train_until_plateau, stream, extension_vocabulary
 from cocoonml.probe import fit, r_squared
 from cocoonml.schema import delta_magnitude, entropy_floor_form, entropy_floor_meaning, generate, identification_error, identification_excess, incidence_delta, n_eff, remap, max_extension_size
 

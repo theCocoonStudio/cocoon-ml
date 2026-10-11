@@ -18,7 +18,7 @@ Operational reading of docs/concepts/03-in-context-learning.md (Claude's, for Iz
 Everything is rational: shares and phases are Fractions; the resolution is a count.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from fractions import Fraction
 import random
 
