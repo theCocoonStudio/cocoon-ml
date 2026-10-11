@@ -51,12 +51,16 @@ class TestSweep7CapMode(unittest.TestCase):
         self.assertNotIn("points", copies["last"])  # the last copy is kept and not read
         for name, entry in copies.items():
             if entry is not None:
+                self.assertIsInstance(entry["held_loss"], float)  # the copy's held loss, beside its held reading
+        for name, entry in copies.items():
+            if entry is not None:
                 self.assertTrue(os.path.exists(entry["file"]), entry["file"])
                 self.assertEqual(len(np.load(entry["file"]).files), 7 + 3)  # six blocks, the within block, and one more layer's three
 
     def test_the_top_level_readings_are_the_read_copy_s(self):
         chosen = self.line["copies"][self.line["read_copy"]]
-        self.assertEqual(self.line["points"], chosen["points"])  # inside a copy, "held" is its held loss; at the top level it is the reading
+        self.assertEqual(self.line["points"], chosen["points"])
+        self.assertEqual(self.line["held"], chosen["held"])  # the held reading of the read copy
         self.assertEqual(self.line["same"], chosen["same"])
 
     def test_plateau_mode_is_unchanged_in_shape(self):
