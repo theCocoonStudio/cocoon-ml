@@ -12,7 +12,7 @@ import time
 from fractions import Fraction
 
 from cocoonml.corpus import produce, windows
-from cocoonml.reference import bayes_losses, marginal_losses, token_counts
+from cocoonml.reference import bayes_losses, leftover_distribution, marginal_losses, token_counts
 from cocoonml.schema import generate
 
 if __name__ == "__main__":
@@ -35,18 +35,20 @@ if __name__ == "__main__":
     held = produce(tables, random.Random(seed + 999), bound, lean, radius, max(16, corpus_size // 4), steps_mean, switch_mean)
     hws = windows(held, sep, length)[:16]
     counts = token_counts(ws)
+    leftovers = leftover_distribution(ws, length)  # the first artifact's length prior (decisions 54, second form)
+    print(f"leftover room before a window's first artifact, over the training windows: {{{', '.join(f'{r}: {q:.3f}' for r, q in leftovers.items())}}}", flush=True)
     print(f"ensemble: forms {forms}, nonterminals {nts}, resolution {res}, length {length}, tables {n_tables}, radius {train_radius_g} grains, steps {steps_mean}, switches {switch_mean}, corpus {corpus_size} artifacts ({len(ws)} windows), seed {seed}; held set {len(hws)} windows; produced in {time.time() - t0:.1f} s", flush=True)
     marginal = [sum(marginal_losses(g, counts)) / len(t) for t, g, _ in hws]
     print(f"marginal level (unigram, training counts): mean {sum(marginal) / len(marginal):.4f}; per window {[round(x, 4) for x in marginal]}", flush=True)
     if steps_mean <= 0 or radius is None and steps_mean <= 0:
-        exact = [sum(bayes_losses(t, g, sep, tables, switch_mean)) / len(t) for t, g, _ in hws]
+        exact = [sum(bayes_losses(t, g, sep, tables, switch_mean, leftovers=leftovers)) / len(t) for t, g, _ in hws]
         print(f"bayes floor (exact, no steps): mean {sum(exact) / len(exact):.4f}; per window {[round(x, 4) for x in exact]}", flush=True)
     else:
         for k in counts_of_particles:
             t1 = time.time()
             rng = random.Random(particle_seed)
-            floor = [sum(bayes_losses(t, g, sep, tables, switch_mean, steps_mean=steps_mean, bound=bound, lean=lean, radius=radius, particles=k, rng=rng)) / len(t) for t, g, _ in hws]
-            print(f"bayes floor (particle filter, {k} particles, seed {particle_seed}): mean {sum(floor) / len(floor):.4f}; per window {[round(x, 4) for x in floor]}; {time.time() - t1:.0f} s", flush=True)
-    stationary = [sum(bayes_losses(t, g, sep, tables, switch_mean)) / len(t) for t, g, _ in hws]
+            floor = [sum(bayes_losses(t, g, sep, tables, switch_mean, steps_mean=steps_mean, bound=bound, lean=lean, radius=radius, particles=k, rng=rng, leftovers=leftovers)) / len(t) for t, g, _ in hws]
+            print(f"bayes floor (particle filter, {k} particles, seed {particle_seed}, burn-in 200 steps thinned by 5, the first artifact conditioned on the leftovers): mean {sum(floor) / len(floor):.4f}; per window {[round(x, 4) for x in floor]}; {time.time() - t1:.0f} s", flush=True)
+    stationary = [sum(bayes_losses(t, g, sep, tables, switch_mean, leftovers=leftovers)) / len(t) for t, g, _ in hws]
     print(f"for scale, the stationary tables' exact predictor on the same windows (misspecified: it ignores the walk): mean {sum(stationary) / len(stationary):.4f}", flush=True)
     print(f"done in {time.time() - t0:.0f} s")

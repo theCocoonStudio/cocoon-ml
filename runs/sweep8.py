@@ -19,7 +19,7 @@ from cocoonml.corpus import bin_windows, form_losses_by_rank, form_losses_by_ran
 from cocoonml.harness import train_to_cap, train_until_plateau
 from cocoonml.markov import MarkovBall, draw, generate, step, window_distances
 from cocoonml.probe import fit, r_squared
-from cocoonml.reference import MarkovWorld, bayes_losses, marginal_losses, token_counts
+from cocoonml.reference import MarkovWorld, bayes_losses, leftover_distribution, marginal_losses, token_counts
 from cocoonml.rules import ENVELOPE, onset
 
 name = sys.argv[1]
@@ -152,16 +152,17 @@ else:
 # decisions 54's references on the evaluate set (hws[:16]): the marginal level from the training windows' counts and
 # the Bayes floor, exact with no steps and by the particle filter with them
 counts = token_counts(ws)
+leftovers = leftover_distribution(ws, length)  # the first artifact's length prior (decisions 54, second form)
 world = MarkovWorld()
 marginal = [sum(marginal_losses(g, counts)) / len(t) for t, g, _ in hws[:16]]
 if steps_mean <= 0:
-    floor = [sum(bayes_losses(t, g, SEP, tables, switch_mean, world=world)) / len(t) for t, g, _ in hws[:16]]
+    floor = [sum(bayes_losses(t, g, SEP, tables, switch_mean, world=world, leftovers=leftovers)) / len(t) for t, g, _ in hws[:16]]
     how = "exact"
 else:
     prng = random.Random(seed + 11)
-    floor = [sum(bayes_losses(t, g, SEP, tables, switch_mean, steps_mean=steps_mean, bound=bound, lean=LEAN, radius=train_radius, particles=PARTICLES, rng=prng, world=world)) / len(t) for t, g, _ in hws[:16]]
+    floor = [sum(bayes_losses(t, g, SEP, tables, switch_mean, steps_mean=steps_mean, bound=bound, lean=LEAN, radius=train_radius, particles=PARTICLES, rng=prng, world=world, leftovers=leftovers)) / len(t) for t, g, _ in hws[:16]]
     how = PARTICLES
-line["reference"] = {"marginal": sum(marginal) / len(marginal), "floor": sum(floor) / len(floor), "floor_estimate": how, "marginal_per_window": marginal, "floor_per_window": floor}
+line["reference"] = {"marginal": sum(marginal) / len(marginal), "floor": sum(floor) / len(floor), "floor_estimate": how, "marginal_per_window": marginal, "floor_per_window": floor, "leftovers": {str(r): q for r, q in leftovers.items()}, "burn_in": 200 if steps_mean > 0 else 0}
 line.update(world="markov", states=states, resolution=res, alpha=ALPHA, end_alpha=END_ALPHA)
 line["seconds"] = round(time.time() - t0, 1)
 print(json.dumps(line))
