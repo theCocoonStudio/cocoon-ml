@@ -24,6 +24,7 @@ from fractions import Fraction
 import numpy as np
 
 from cocoonml.array_attention import ArrayAttention
+from cocoonml.circuits import circuit_scores
 from cocoonml.corpus import Ball, bin_windows, form_losses_by_rank, form_losses_by_rank_with_error, order_control, probe_rows, produce, whole_rank, window_distances, window_truth_distances, windows
 from cocoonml.harness import train_to_cap, train_until_plateau
 from cocoonml.probe import fit, r_squared
@@ -107,7 +108,8 @@ def read_everything():
         rws = windows(reading, SEP, length)
         points["free" if r is None else str(r)], more, base = read(rws, reading, random.Random(seed + 2), base)
         rows += more
-    return {"same": same, "held": held_reading, "points": points, "probe_r2_truth_distance": probe(rows, 1), "probe_r2_rank": probe(rows, 2)}
+    circuits = circuit_scores(model, [t for t, _, _ in hws[:16]], exclude={SEP})  # the two circuit scores per layer on the held windows (docs/literature.md, entries 2 and 3)
+    return {"same": same, "held": held_reading, "points": points, "probe_r2_truth_distance": probe(rows, 1), "probe_r2_rank": probe(rows, 2), "circuits": circuits}
 
 
 def probe(rows, target):
