@@ -157,3 +157,23 @@ class TestTheWholeRow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheReferencesBesideTheTests(unittest.TestCase):
+    def test_a_cell_at_the_marginal_and_above_the_floor_is_read_as_such(self):
+        from cocoonml.run_row import references_check
+
+        cell = run_cell(96, 7, 1, 0.05, [1.29, 1.28, 1.20, 1.10, 1.05, 1.00], onset=150)
+        cell["copies"]["best"]["step"] = 300
+        out = references_check([cell], {1: {"marginal": 1.281, "floor": 0.60}})
+        self.assertTrue(out[cell["run"]]["at_marginal"])
+        self.assertEqual(out[cell["run"]]["best"], 1.00)
+        self.assertFalse(out[cell["run"]]["below_floor"])
+        out = references_check([cell], {1: {"marginal": 1.281, "floor": 1.05}})
+        self.assertTrue(out[cell["run"]]["below_floor"])  # 54's Fails-if
+
+    def test_the_report_names_the_references_line(self):
+        cells = [run_cell(96, 7, 1, 0.05, LEARNED_EVALS, onset=150)]
+        text = report(apply_row(cells, [], references={1: {"marginal": 1.28, "floor": 0.6}}))
+        self.assertIn("decisions 54 beside the tests", text)
+        self.assertIn("decision 48's next form", text)
