@@ -177,12 +177,19 @@ class TestRows(unittest.TestCase):
 
 
 class TestApplyRows(unittest.TestCase):
-    def test_r1_before_r2_when_both_fire(self):
+    def test_r1_is_a_reading_and_moves_nothing_when_r2_fires(self):
         cells = {(1, 96): cell(evaluations=(1.0, 2.5, 1.0), hit_cap=True)}
+        self.assertTrue(r1_instability(cells[(1, 96)])[0])
         self.assertTrue(r2_budget(cells[(1, 96)])[0])
-        row, following, _ = apply_rows(cells, (1,), VECTOR, 11.4)
-        self.assertEqual(row, "R1")
-        self.assertEqual(following, VECTOR)  # the vector stands; the sizes that fired have their rate halved by the loop (decisions 40)
+        row, following, detail = apply_rows(cells, (1,), VECTOR, 11.4)
+        self.assertEqual(row, "R2")  # decisions 53: the ladder is the search, a divergence is a reading; R1 halves no rate
+        self.assertIn("R1 holds, a reading", detail)
+        self.assertEqual(following.lr, VECTOR.lr)
+
+    def test_a_diverged_cell_alone_stops_with_r1_noted(self):
+        row, following, detail = apply_rows({(1, 96): dict(cell(), diverged=True)}, (1,), VECTOR, 11.4)
+        self.assertEqual((row, following), ("stop", VECTOR))
+        self.assertIn("the loss is not finite", detail)
 
     def test_r2_doubles_the_cap_and_raises_the_corpus_to_its_floor(self):
         row, following, _ = apply_rows({(1, 96): cell(evaluations=(1.0, 0.9), hit_cap=True)}, (1,), VECTOR, 11.4)
