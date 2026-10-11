@@ -272,14 +272,18 @@ def _vector_text(vector):
     return f"({vector.width}, {vector.layers}, {vector.length}, {vector.corpus}, {vector.read_size}, {vector.cap}, {vector.lr})"
 
 
-def log_entry(stamp, vector, sizes_run, cells, row, detail, next_vector):
+def log_entry(stamp, vector, sizes_run, cells, row, detail, next_vector, rates=None):
     """docs/rules.md, "The log entry": one line with the stamp, the vector, the sizes run with each
-    cell's seconds, the row that fired with the comparison it made, and the next vector or "stop";
-    no reading's number."""
+    cell's seconds, the rates per size when they differ from the vector's (decisions 53: the rate each
+    size ran at is part of the vector, a debt Buridan named), the row that fired with the comparison
+    it made, and the next vector or "stop"; no reading's number."""
     run = ", ".join(f"{cells[key]['run']} {cells[key]['seconds']} s" for key in sorted(cells))
     sized = ", ".join(f"({w}, {l})" for w, l in sizes_run)
     following = "stop" if next_vector is None else _vector_text(next_vector)
-    return f"- {stamp} · vector {_vector_text(vector)} · sizes {sized}: {run} · row {row}: {detail} · next: {following}"
+    per_size = ""
+    if rates:
+        per_size = " · rates per size " + ", ".join(f"({w}, {l}) {rate}" for (w, l), rate in sorted(rates.items()))
+    return f"- {stamp} · vector {_vector_text(vector)} · sizes {sized}: {run}{per_size} · row {row}: {detail} · next: {following}"
 
 
 # --- Decisions 53, the run's row at the statistical layer: its predicates and tests, pure ---------
