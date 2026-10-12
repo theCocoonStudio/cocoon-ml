@@ -175,6 +175,89 @@ Taken on the citation without re-reading the line (marked trust, per the concess
 
 The gap between my list and his: not measured this round; my own list of the reading's choices was not written before his was launched (the rule of 2026-10-09). Recorded, not glossed.
 
+## The mutual-information check (entry 9's, owed by this round; computed 21:40, Claude; no verdict)
+
+Entry 9 (Makkuva) gives the identity for one fixed chain: the unigram predictor's loss minus the bigram's equals the mutual information between a token and its successor. The check here, from the apparatus's own objects (the tables, the training corpus and the held set rebuilt from the run's arguments and seed exactly as `runs/sweep8.py` builds them), on the sixteen evaluate windows, in natural logs: the marginal level recomputed (it reproduces the lines' 1.5966 and 1.5978 exactly, so the rebuild is the run's), and the pooled bigram level, the next-token cross-entropy under the training windows' bigram counts, which is the best any predictor can do that knows no table and reads nothing in context. The script is in the records' scratch as `mi-check-08.py`, pyflakes clean, run under `PYTHONPATH` on main; it is not in the apparatus and has no test, so its numbers are a reader's, marked as such.
+
+```
+steps_mean 0.0: training windows 3966, held windows 991, evaluate windows 16
+marginal level (unigram, training counts) on hws[:16]: 1.5966
+pooled bigram level (training bigram counts, no table known) on hws[:16]: 1.4889
+unigram minus pooled bigram (the pooled mutual information between a token and its successor): 0.1077
+table 0: start ['1/4', '1/4', '3/8', '1/8']; rows (states then end): [1/4, 3/8, 1/4, 0, 1/8]; [0, 0, 3/8, 1/2, 1/8]; [3/8, 1/8, 1/8, 1/8, 1/4]; [1/8, 1/4, 1/4, 0, 3/8]
+   row entropies (nats) [1.3209, 0.9743, 1.4942, 1.3209]
+table 1: start ['1/8', '1/8', '5/8', '1/8']; rows (states then end): [1/4, 1/4, 0, 1/4, 1/4]; [3/8, 0, 1/8, 0, 1/2]; [1/8, 0, 3/8, 3/8, 1/8]; [3/8, 1/8, 0, 3/8, 1/8]
+   row entropies (nats) [1.3863, 0.9743, 1.2555, 1.2555]
+```
+
+```
+steps_mean 1.0: training windows 3907, held windows 989, evaluate windows 16
+marginal level (unigram, training counts) on hws[:16]: 1.5978
+pooled bigram level (training bigram counts, no table known) on hws[:16]: 1.5016
+unigram minus pooled bigram (the pooled mutual information between a token and its successor): 0.0962
+table 0: start ['1/4', '1/4', '3/8', '1/8']; rows (states then end): [1/4, 3/8, 1/4, 0, 1/8]; [0, 0, 3/8, 1/2, 1/8]; [3/8, 1/8, 1/8, 1/8, 1/4]; [1/8, 1/4, 1/4, 0, 3/8]
+   row entropies (nats) [1.3209, 0.9743, 1.4942, 1.3209]
+table 1: start ['1/8', '1/8', '5/8', '1/8']; rows (states then end): [1/4, 1/4, 0, 1/4, 1/4]; [3/8, 0, 1/8, 0, 1/2]; [1/8, 0, 3/8, 3/8, 1/8]; [3/8, 1/8, 0, 3/8, 1/8]
+   row entropies (nats) [1.3863, 0.9743, 1.2555, 1.2555]
+```
+
+What the numbers say about the gap, arithmetic only: in s0 the marginal-to-floor gap of 0.363 splits into 0.108 that an in-weights bigram closes and 0.256 that only reading the window's table can close; the best copy at 1.3893 sits 0.100 below the pooled bigram level, which is 0.39 of that in-context part. In s1 the gap of 0.321 splits into 0.096 and 0.225; the best copy at 1.4368 sits 0.065 below the pooled bigram level, 0.29 of the in-context part. One seed each, one cell each, no replication: readings for the next round, nothing more.
+
+The script, verbatim:
+
+```python
+"""The mutual-information check of docs/literature.md entry 9 on sweep 08's cells, from the apparatus's own
+objects: the tables, the training corpus and the held set rebuilt from the run's arguments and seed exactly as
+runs/sweep8.py builds them; on the sixteen evaluate windows the marginal level (the unigram predictor with the
+training counts, recomputed to confirm the line's number) and the pooled bigram level (the next-token
+cross-entropy under the training windows' bigram counts, the in-weights bigram predictor that knows no table),
+beside the line's floor. Natural logs. No verdict. Usage: PYTHONPATH=<cocoon-ml> mi-check-08.py <steps_mean>"""
+import math
+import random
+import sys
+from fractions import Fraction
+
+from cocoonml.corpus import produce, windows
+from cocoonml.markov import draw, generate, step
+from cocoonml.reference import FLOOR, marginal_losses, token_counts
+
+steps_mean = float(sys.argv[1])
+states, res, length, n_tables, train_radius_g, switch_mean, corpus_size, seed = 4, 8, 64, 2, 1, 0.5, 42000, 1
+ALPHA, END_ALPHA, SEP = 1.0, 1.0, states + 1
+tables = [generate(states=states, resolution=res, seed=10 * seed + i, alpha=ALPHA, end_alpha=END_ALPHA) for i in range(n_tables)]
+bound = Fraction(states + 1, 2 * res)
+train_radius = train_radius_g * Fraction(1, res)
+corpus = produce(tables, random.Random(seed), bound, None, train_radius, corpus_size, steps_mean, switch_mean, draw=draw, step=step)
+ws = windows(corpus, SEP, length)
+held = produce(tables, random.Random(seed + 999), bound, None, train_radius, max(16, corpus_size // 4), steps_mean, switch_mean, draw=draw, step=step)
+hws = windows(held, SEP, length)
+counts = token_counts(ws)
+marginal = [sum(marginal_losses(g, counts)) / len(t) for t, g, _ in hws[:16]]
+bigram = {}
+for t, g, _ in ws:
+    for a, b in zip(t, g):
+        bigram.setdefault(a, {})
+        bigram[a][b] = bigram[a].get(b, 0) + 1
+def bigram_loss(t, g):
+    out = []
+    for a, b in zip(t, g):
+        row = bigram.get(a, {})
+        total = sum(row.values())
+        p = row.get(b, 0) / total if total else 0.0
+        out.append(-math.log(min(1.0, max(FLOOR, p))))
+    return out
+pooled = [sum(bigram_loss(t, g)) / len(t) for t, g, _ in hws[:16]]
+print(f"steps_mean {steps_mean}: training windows {len(ws)}, held windows {len(hws)}, evaluate windows 16")
+print(f"marginal level (unigram, training counts) on hws[:16]: {sum(marginal) / 16:.4f}")
+print(f"pooled bigram level (training bigram counts, no table known) on hws[:16]: {sum(pooled) / 16:.4f}")
+print(f"unigram minus pooled bigram (the pooled mutual information between a token and its successor): {sum(marginal) / 16 - sum(pooled) / 16:.4f}")
+for i, chain in enumerate(tables):
+    rows = chain.rows
+    print(f"table {i}: start {[str(x) for x in chain.start]}; rows (states then end): " + "; ".join("[" + ", ".join(str(x) for x in r) + "]" for r in rows))
+    ent = [-sum(float(p) * math.log(float(p)) for p in r if p > 0) for r in rows]
+    print(f"   row entropies (nats) {[round(e, 4) for e in ent]}")
+```
+
 ## What changed
 
-The note's second form and the second table (above); nothing in the code; no row touched. Owed from this round before any reading of the lines as results: the floor of 08 s1 at a second particle count (reference7-style, or sweep8 with argv 23 = 800); the mutual-information check of entry 9 (marginal minus floor against the chains' mutual information: 0.363 and 0.321 on the record); Methuselah's half.
+The note's second form and the second table (above); nothing in the code; no row touched. Owed from this round before any reading of the lines as results: the floor of 08 s1 at a second particle count (reference7-style, or sweep8 with argv 23 = 800); Methuselah's half (the mutual-information check is above, computed).
