@@ -9,9 +9,9 @@ Claude, from the exchange with the owner on 2026-10-17 (records `claude/exports/
 
 ## 1. The holes, typed (the owner's; the order of construction)
 
-1. S: what it measures.
+1. S: what it measures. **Kept, 2026-10-18:** the unresolved share, `general-model.md` 6.4, restated as D0 below; hole 3 closes with it.
 2. The distance between w_p and w_t: which count it is a ratio of (the page: "a scale between two vantages", no count named).
-3. "Resolve x": the predicate on the output distribution (the page: a threshold, empirical, drifting, none given).
+3. "Resolve x": the predicate on the output distribution (the page: a threshold, empirical, drifting, none given). **Closed by D0, 2026-10-18:** no threshold; 1 - S is the share resolved.
 4. Psi(w_t, w_p, x): its space, and how w_p enters, since the model has no access to w_p (section 3 below).
 5. The fixed-index bound, first form (`fixed-index-bound.md`, 2026-10-09), unstruck.
 6. The r_train row (`03-in-context-learning.md`, 2026-10-16), unstruck.
@@ -26,12 +26,13 @@ The legacy model computes M(w_t, x); the general model M(w_t, w_p, x) (session 0
 
 ## 3. Step 2, the goal formalized according to the direction
 
+- **D0. S, the unresolved share (kept by the owner, 2026-10-18).** S(R, k, D) := ex_k(R | D) / ex_k(R0 | D), the reader's per-rank excess over windows at distance in D as a share of the marginal reader's; `general-model.md` 6.4 is the definition with its remarks. It measures the bits R leaves unresolved at rank k as a share of the bits the window could resolve at that rank; 0 at the Bayes reader, 1 at the marginal, no unit, no vantage outside the law. The owner's two questions of 2026-10-17 answered by it: S is 1 minus a share, so the limit is a statement that can be true or false; the unit is none. The denominator is the marginal's excess rather than the reader's own first rank: not a choice, the two determine each other (6.4), only the name moves. The statement below is in S: the owner's prediction is a positive limit in k that grows with the distance; the degenerate case S = 1 at every k; the direction, the general class's best member at size n being w_p (D4'), its limit is S(w_p, k, D), the trainer's own gap as a share, falling with n, and the legacy reader's limit exceeds it by an amount that grows with the distance.
 - **D1. Index and protocol.** At each index t a protocol P_t, a distribution over pairs of form and meaning; the drift moves the index. (`general-model.md`, Parts I to III.)
 - **D2. Distance.** d(t, t'), a ratio of counts in [0, 1] between two indices. Which count: hole 2.
 - **D3. Window and model.** A window: k pairs drawn at index t' and one query form. A model is a map from a window to a distribution over V (the output map, round 1).
 - **D4. The world's weights.** W(t): the weights training on P_t produces at size n. w_t = W(t), w_p = W(t'). A function of the index alone; no sample is an argument of it.
 - **D4'. The two classes, by where the window's information lands.** L computes f(W(t); window). G computes f(G_hat; window), where G_hat is an estimate of W(t') from W(t) and the window alone, no oracle; the estimate's error is the residual (the page; `fixed-index-bound.md` D5), the part of W(t') that no window of length k identifies. The residual bounds every member of G and of L alike. L is the member of G whose estimate is W(t) itself, so every statement below is about the best member of each class at size n, for every n above some floor (the owner's "big enough to absorb noise").
-- **D5. Resolution.** R(M, t', k): the share of the uncertainty about the meaning that M's distribution removes, a ratio of counts in [0, 1]. Which count: hole 3. (`general-model.md` 4.4 has the excess over the floor; R is its complement as a share.)
+- **D5. Resolution.** R(M, t', k) := 1 - S(M, k, D) with D the band at t' (D0); the count is the bits of 6.4, hole 3 closed.
 - **D6. Cost.** k_M(r, d): the least k at which R(M, t', k) reaches r at every index t' at distance d from t; infinite if none does. This is `general-model.md` 6.1's recovery read the other way: rec gives the resolution at k, k_M gives the k at a resolution.
 - **The statement.** For r below the identifiable share at k (the residual's complement), the function d to k_L(r, d) against d to k_G(r, d). The asymptote as the proof meant it: a d* beyond which k_L(r, d) is infinite while k_G(r, d) is finite everywhere. The owner's prediction (2026-10-08, 2026-10-09; `general-model.md` 6.2): k_L finite everywhere, growing with d, the growth smaller the more drift the training carried. One function, two shapes; the r_train row measures it at three values of the training drift. The direction's content is the difference between the two costs above the identifiability floor, which is the same floor for both classes.
 - **What this adds to `general-model.md`.** Part V defines readers given the law and the trained reader; none whose parameter depends on the window. One definition to add, 4.5: a reader whose parameter is a function of the window (the class G); Part VII's statement is then about two readers.
@@ -55,4 +56,4 @@ The owner: "if you focus on the wrong tasks, you cant bring out the slope"; "the
 
 ## 7. Next
 
-The owner's strikes, one item at a time: S (hole 1) first, then D2's and D5's counts, then Lemma 4; the definition 4.5 into `general-model.md` once struck or kept; the proof's order after: the identifiability floor (fixed index, then Lemma 4), then the identified part of the two samples, then the two classes compared above the floor.
+The owner's strikes, one item at a time: S kept (2026-10-18); next D2's count, then Lemma 4; the definition 4.5 into `general-model.md` once struck or kept; the proof's order after: the identifiability floor (fixed index, then Lemma 4), then the identified part of the two samples, then the two classes compared above the floor.
