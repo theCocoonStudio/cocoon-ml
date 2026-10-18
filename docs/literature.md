@@ -2,7 +2,7 @@
 
 Izzy, 2026-10-10 23:1x: the research program's direction, refined. An empirical argument needs a model of what is happening, and a model needs the data it predicts; the step that bridges our record to the field is (1) replicating others' results within our model and (2) explaining other models within ours, done as we go and not last, so that the field's methods and models frame our results on their terms as we build, and may bring answers and insights of their own. The theory (cocoon-relations) is the model side of the bridge, a direct component of the goal; the apparatus here is the data side; this file is the bridge's record. We must be prepared to identify circuits where we can.
 
-Status: the entries were written 2026-10-10 23:4x **from Claude's memory of the papers**; on 2026-10-11 the research session downloaded the twelve papers of the list below and verified their identifiers; an entry headed **verified** has been checked against its paper, the memory version's errors listed inside it; the others stay from memory until read. An entry is verified when its claims have been checked against the paper and the citation completed; a claim that fails the check is corrected here, not glossed. As of 2026-10-11 21:3x every downloaded paper is read and its entry verified (1, 4 to 12; the four of the former "Further" row read in session 96f1b1c6); entries 2 and 3 stay from memory until their text is reachable.
+Status: the entries were written 2026-10-10 23:4x **from Claude's memory of the papers**; on 2026-10-11 the research session downloaded the twelve papers of the list below and verified their identifiers; an entry headed **verified** has been checked against its paper, the memory version's errors listed inside it; the others stay from memory until read. An entry is verified when its claims have been checked against the paper and the citation completed; a claim that fails the check is corrected here, not glossed. As of 2026-10-11 21:3x every downloaded paper is read and its entry verified (1, 4 to 12; the four of the former "Further" row read in session 96f1b1c6); entries 2 and 3 stay from memory until their text is reachable. Entries 13 to 22 were read on 2026-10-18 from their TeX sources through the gateway's arxiv route, alone while the owner was out ("grab 10 articles and document them"), chosen for the fork of `docs/proofs/asymptote-goal.md` section 7: task diversity, Bayesian against non-Bayesian in-context learning, behaviour off the pretraining support; each says what it means for the fork.
 
 Each entry: their claim; their model; what their result predicts for our data; our replication within the apparatus; the status.
 
@@ -111,6 +111,174 @@ Each entry: their claim; their model; what their result predicts for our data; o
 **Read 2026-10-11 (the TeX source: the main body and the appendices on the constructions, the copying layer, softmax and LayerNorm); verified.** **Their claims.** (a) A single linear self-attention layer (the softmax dropped) with explicit weights (the key and query projecting the input, the value carrying W_0 and −I on the target, the projection η/N) moves every token by (0, −ΔW x_j), ΔW one gradient step on the squared loss over the context: learning as a change of the data, not the weights; the query token with its target set to −W_0 x reads out the post-step prediction (Prop. 1, App.). (b) Trained single linear layers on noiseless linear regression (W ~ N(0, I), x ~ U(−1, 1)^10, N = 10, the loss on the last token only) find that construction up to a scale: predictions and their sensitivities agree, a rescaled interpolation of the weights has the same loss, the agreement holds out of distribution, and the layer applied repeatedly with a damping of 0.75 descends like gradient descent for 50 steps (§3.1). (c) K layers beat K steps of gradient descent and match GD++, gradient descent with the data transformation H(X) = I − γXX^T, a curvature correction, one learned γ for a recurrent model and an η, γ per layer for a 5-layer one (§3.2). (d) An MLP before the attention makes it kernel regression on the MLP's features, shown on sine waves (Prop. 2, §3.3); one step from W_0 = 0 is kernel smoothing (App.). (e) With the standard alternating tokens (x_j, then y_j) a first softmax layer can copy the next target onto the input (Prop. 3); a trained two-layer softmax-then-linear model reaches the loss of one gradient step, not two, trains an order of magnitude slower with seed-dependent timing, and its first layer's output becomes dependent on the neighbouring token before the loss drops (§4): the copying, then the step. (f) A single softmax layer cannot match gradient descent; two heads correct the softmax's offset and nearly do; LayerNorm hurts (App.).
 
 **For our data.** (1) Claim (e) is the clearest statement in the set of what the two-layer requirement is: a copying layer that builds the pairs, then a layer that computes with them, with the copying's emergence the thing that delays the drop and varies by seed; our reading of sweep 04 round one and Reddy's saddle (entry 6) say the same; their measure, the first layer's output's sensitivity to the neighbouring token over training, is a cheap instrument for the pairing's onset on our copies, readable before any meaning is. (2) "Learning as a change of the data" is the inversion in their terms: the weights fixed, the tokens moved; in the framework's words the memory updating the extension in context, the weights the extensions at the training index (2026-10-08). (3) GD++ says a deeper model implements a preconditioned step, so a depth-two attention-only model's reading is one coarse step; what k examples give in one step is the first form of our bound. **Where our model departs:** softmax attention and discrete tokens (their linear attention is the tractable case, their softmax results the caveat); their loss on the last token only, ours over positions. **Replication:** the sensitivity instrument on the 07e copies, proposed; nothing to run. **Status:** verified.
+
+## 13. Raventós, Paul, Chen, Ganguli (2023), "Pretraining task diversity and the emergence of non-Bayesian in-context learning for regression", arXiv 2306.15063 (NeurIPS 2023)
+
+**Read in full 2026-10-18 (the TeX source, through the gateway's arxiv route; the first of ten read alone while the owner was out, chosen for the fork of `docs/proofs/asymptote-goal.md` section 7).**
+
+**Their setting (§2).** In-context linear regression: a task is w in R^D, D = 8; a sequence is K = 16 pairs (x_k, y_k) with x_k ~ N(0, I), y_k = w^T x_k + noise of variance 0.25; a decoder transformer (GPT-2, 8 layers, 128 wide, 2 heads; a small one with 4 layers and 64) predicts every y_k from the prefix, trained on the mean squared error, Adam, 500K steps at batch 256. The pretraining task distribution is uniform over a fixed set of M regression vectors drawn once from N(0, I); the ideal distribution is N(0, I) itself, so a new task is one not in the set. Two optimal estimators are computable: dMMSE, the Bayes estimator under the uniform prior on the M vectors (a likelihood-weighted average of them), and ridge with the ridge parameter the noise variance, the Bayes estimator under the Gaussian prior. The model is compared to each by the mean squared difference of predictions.
+
+**Their claims, as the paper states them.**
+- (a) Below a task diversity of about 2^6 the model tracks dMMSE: optimal on seen tasks, well above ridge on new ones; "it behaves like the Bayesian estimator with prior T_pretrain" (§3.1).
+- (b) Above it the model departs from dMMSE toward ridge on both distributions, outperforming dMMSE on new tasks at the cost of not minimising its own pretraining loss.
+- (c) A threshold between 2^14 and 2^15 tasks (the base model) at which more sequences per task at fixed diversity moves the model toward dMMSE below and toward ridge above; read as an algorithmic phase transition in the limit of many sequences per task. Doubling steps and doubling batch size give the same threshold.
+- (d) Below the threshold the early-stopping time at which the model is nearest ridge scales as M^0.47 and then the model drifts to dMMSE; above it the distance to ridge falls monotonically over 2M steps.
+- (e) The threshold grows about linearly with D (2^14, 2^15, 2^16 at D = 8, 16, 32) while the volume of tasks grows exponentially; at M = 2^20 the model's distance to ridge is nearly independent of D while dMMSE's grows with D.
+- (f) Weight decay lowers the threshold (with worse loss); capacity raises it for the small model and not for the base one.
+- (g) The model beats a smoothed dMMSE (a mixture of Gaussians at the M centres, width optimised), so it is not dMMSE with finite precision.
+- (h) Models above about 2^13 tasks share a loss basin with the M = infinity model (linear mode connectivity); those below do not.
+
+**What it means for the fork (section 7 of the asymptote document).** This is Lemma 5's pair of readers measured: dMMSE is the Bayesian legacy reader with the training prior, ridge is the flat estimator. Two corrections to the draft follow. First, the training prior of a trained reader is the ball's empirical measure, not the walk's stationary law: with a small ball the prior is discrete, the posterior converges to the nearest ball point, and the legacy limit is positive and grows with the distance, the owner's prediction; the conjugate approximation of Lemma 5 (a smooth prior, limit zero) holds only when the ball is dense enough to be smooth at the scale of the window's resolution. Second, below the threshold the pull strengthens with training length at fixed diversity (claim c, d), so kappa_v carries the training sample size, not only the spread. The fork is then sharper than typed: case (b) with a positive limit is the discrete-prior regime below a threshold in the ball's cardinality; case (a) with limit zero is above it, where the trained reader is non-Bayesian with respect to its own ball and reaches the flat estimator. Their axis is the number of distinct tasks; ours is the training radius rho_t, which sets the number of distinct tables the training production visits, so the r_train row's three radii should be placed to straddle a threshold in the ball's cardinality, and the row's reading is which side each cell lands on.
+
+**Status.** Paper verified; the correction to D8 and Lemma 5 is for the owner's strike; the row's placement is a design item for the next run.
+
+## 14. Yadlowsky, Doshi, Tripuraneni (2023), "Pretraining Data Mixtures Enable Narrow Model Selection Capabilities in Transformer Models", arXiv 2311.00871
+
+**Read in full 2026-10-18 (the TeX source).**
+
+**Their setting.** The Garg et al. setup (entry 10): sequences of (x, f(x)) pairs, x ~ N(0, I_d), a 9.5M-parameter decoder (12 layers, 8 heads, 256 wide), the teacher-forcing squared loss. Pretraining mixtures of function classes with weight w: dense linear, sparse linear (nnz non-zero coefficients), two-layer ReLU networks, sinusoids; the test is the squared loss on new functions in or out of the mixture.
+
+**Their claims.**
+- (a) A model trained on a half-and-half mixture of dense and sparse linear functions matches each single-class model, and so the optimal baselines (least squares, Lasso), nearly uniformly in the number of in-context examples: model selection among the pretraining classes at almost no statistical cost (§3).
+- (b) At intermediate sparsity (nnz about 4) the mixture model's predictions lie between the two classes' models.
+- (c) Convex combinations of a linear function and a sinusoid: the mixture model fits either alone but not the combination; erratic predictions when both contribute (§4).
+- (d) Sinusoids with frequencies drawn from Gamma(6, 1/6) in pretraining: generalization holds on rarer frequencies and breaks down outside the range (below 0.01 or above 5, fewer than one in 10^7 of the pretraining draws).
+- (e) A tokenized variant (scalars binned to tokens, cross-entropy) could not be trained to a low loss.
+- Their conclusion: "the impressive ICL abilities of high-capacity sequence models may be more closely tied to the coverage of their pretraining data mixtures than inductive biases that create fundamental generalization capabilities."
+
+**What it means for the fork.** Case (b) measured in a nonlinear world: off the support the gap is what the architecture does, and it grows with the distance from the pretraining mass (claim d is a distance axis with degradation growing along it, the owner's shape). Claim (a) is the identified part at zero cost: inside the ball the window picks the component. The negative result is a reading of a fixed model; nothing here bounds the gap, which is the fork's point.
+
+**Status.** Paper verified.
+
+## 15. Ahuja, Lopez-Paz (2023), "A Closer Look at In-Context Learning under Distribution Shifts", arXiv 2305.16704
+
+**Read in full 2026-10-18 (the TeX source).**
+
+**Their setting.** In-context linear regression, d = 10, beta ~ N(0, I), noiseless and noise variance 1; transformers of the GPT-2 family at 12 and 16 layers against a set-based MLP (the DeepSets form psi(rho(mean of phi(x_i, y_i)), x_q), widths 500, depths 4 to 26); covariate shift over prompts: train x ~ N(0, I), test x ~ N(mu, I) with mu = 2 (mild) or 4 (severe) on every coordinate.
+
+**Their claims.**
+- (a) Theorems, stated for completeness: under the square loss the optimal model is the posterior mean; with a Gaussian prior it is ridge with the noise variance as penalty, OLS as the noise vanishes; for a non-Gaussian prior the same holds under a constraint that the model is linear in the query and in the labels.
+- (b) Set-based MLPs learn in context in distribution but below the transformers.
+- (c) Under the mild shift transformers degrade gracefully and the set-based MLPs become erratic; under the severe shift both fail.
+- (d) In-distribution ranking does not predict the out-of-distribution one, for either architecture.
+
+**What it means for the fork.** The shift here is in the inputs' law, not the task's; both architectures fail far out, so the off-support gap differs between architectures in degree and not in kind, which is what the fork says the definitions cannot bound. Claim (d) is our statement that the two classes are compared at a distance, never at k alone.
+
+**Status.** Paper verified.
+
+## 16. Panwar, Ahuja, Goyal (2023), "In-Context Learning through the Bayesian Prism", arXiv 2306.04891 (ICLR 2024)
+
+**Read in full 2026-10-18 (the TeX source).**
+
+**Their setting.** The Garg setup and a hierarchical one, mixtures of function classes with sampling weights alpha; a 12-layer, 8-head, 256-wide decoder, batch 64, 500K steps, curriculum as Garg; the ideal model is the posterior mean estimator (PME), computed exactly where tractable (Gaussian mixtures) or by MCMC. Function families: dense, sparse, sign-vector, low-rank and skewed-covariance regression; Fourier series; degree-2 monomials over feature sets; the noisy linear regression of entry 13.
+
+**Their claims.**
+- (a) With a two-component Gaussian mixture prior on the weights (means plus and minus 3 on the first coordinate), the transformer's errors and its implied weights match the PME of the mixture at every prompt length; recognising the component and solving are one computation, not two (§4.1).
+- (b) The simplicity bias of in-context learning is the pretraining distribution's: no preference among frequencies when all are equally represented; a low-frequency preference at short prompts when the mixture favours them; the reverse when it favours high frequencies.
+- (c) Multi-task generalization: with K feature sets of 55-choose-10 possible, out-of-distribution performance on unseen sets improves with K (10 to 5000), approaching OLS and then Lasso on the full basis, at the cost of in-distribution performance; the model deviates from the Bayesian predictor on its pretraining distribution.
+- (d) "Forgetting" (§6.1): in the noisy linear regression of entry 13, at diversities 2^7 to 2^11 the model first generalizes (the out-of-distribution loss reaches ridge at some step) and then memorises toward dMMSE by the end of pretraining; four regimes by diversity: none and no forgetting (2^1 to 2^3), some (2^4 to 2^6), full with forgetting (2^7 to 2^11), full without (2^12 to 2^20). The extent of forgetting grows with the dimension.
+- (e) A hypothesis: where transformers appear to do gradient descent in context they are approximating Bayesian inference under a capacity limit.
+
+**What it means for the fork.** Claim (d) adds a time axis to Lemma 5: at an intermediate diversity the trained reader's prior moves during training from broad to the ball, so the pull kappa_v grows with training time at a fixed ball, and the legacy limit depends on which copy of the run is read. For the r_train row, S is read at the three copies (marginal, best, last), and the owner's prediction may hold at the last and not at the best. Claim (a) is the identified part once more, in closed form.
+
+**Status.** Paper verified; the copy-dependence is a reading rule for the row.
+
+## 17. Bai, Chen, Wang, Xiong, Mei (2023), "Transformers as Statisticians: Provable In-Context Learning with In-Context Algorithm Selection", arXiv 2306.04637 (NeurIPS 2023)
+
+**Read 2026-10-18 (the TeX source; the constructions and the pretraining bound; the appendix proofs not read).**
+
+**Their setting.** Encoder transformers with a normalised ReLU in place of softmax, attention and MLP layers, the input a matrix of (x_i, y_i) columns with a positional row; a parameter norm; in-context data (D, x_{N+1}) from a distribution P that is itself drawn from a meta-distribution pi.
+
+**Their claims.**
+- (a) Explicit constructions implement in-context ridge regression and least squares (layers O(kappa log(1/eps)), 3 heads), Lasso, convex risk minimisation for generalised linear models, and gradient descent on two-layer networks, through an efficient in-context gradient descent whose error grows linearly in the steps; near-optimal prediction (excess d sigma^2 / N for linear regression; nearly the Bayes risk for the Gaussian prior).
+- (b) In-context algorithm selection: post-ICL validation (a train/validation split in context, three layers, a convex combination of the near-best base algorithms) and pre-ICL testing (a summary statistic decides, e.g. binary labels select logistic regression); nearly Bayes-optimal prediction on noisy linear models with K mixed noise levels, excess O((log K / N)^{1/3}).
+- (c) Pretraining: ERM over transformers of L layers, M heads and norm B on n instances has excess O(B_y^2 sqrt(L^2 (M D^2 + D D') log / n)); end to end for linear regression, sqrt(kappa^2 d^2 / n) + d sigma^2 / N.
+- (d) Experiments: a 12-layer model matches the best baseline on four of five base tasks and selects between noise levels and between regression and classification.
+
+**What it means for the fork.** An existence proof that the fixed-weight class contains the right estimator for every member of the pretraining mixture, with a capacity price in layers and heads: the owner's "big enough". Every guarantee is for P drawn from pi, the pretraining meta-distribution; nothing is stated off its support, which is the fork's silence made explicit. The pretraining bound counts instances, not tasks; entry 22 counts tasks.
+
+**Status.** Main text verified; appendices unread.
+
+## 18. Zhang, Frei, Bartlett (2023), "Trained Transformers Learn Linear Models In-Context", arXiv 2306.09927
+
+**Read 2026-10-18 (the TeX source; the main results, the shifts, the random-covariance section and the experiments; the proofs skimmed).**
+
+**Their setting.** One layer of linear self-attention (no softmax, merged value-projection and key-query matrices), the prompt embedded as columns (x_i, y_i) with (x_q, 0) last, gradient flow on the population loss; training prompts of length N with x ~ N(0, Lambda), w ~ N(0, I), y = w^T x.
+
+**Their claims.**
+- (a) From a suitable random initialisation gradient flow converges to a global minimum despite non-convexity (Theorem 4.1); the limit predicts y_q = x_q^T Gamma^{-1} (1/M) sum of y_i x_i with Gamma = (1 + 1/N) Lambda + (tr Lambda / N) I: one step of preconditioned gradient descent.
+- (b) On a test prompt of M i.i.d. pairs from any law with the training x marginal, the error is the best linear predictor's plus O(1/M + 1/N^2); the gap does not vanish as M grows unless N does: the reader is bounded by the length of the prompts it was trained on.
+- (c) Task shifts (any w, noise) are tolerated; query shifts are tolerated at large M; covariate shifts are not: inputs scaled by c give c^2 x_q^T w (§4.2).
+- (d) Trained on prompts whose diagonal covariance is drawn per prompt, gradient flow still converges, and the prediction on a new covariance Lambda_new tends to x_q^T E[Lambda^2] E[Gamma Lambda^2]^{-1} Lambda_new w; with Exponential(1) eigenvalues the expectation is one third of the truth (§5).
+- (e) GPT-2 models trained on the same tasks generalise better under covariate shift, more so when trained on varying covariances, and still fail at the largest scaling (c = 9); a spike in error when the test prompt is longer than the training one, attributed to the positional encodings.
+
+**What it means for the fork.** The cleanest case (b) in the literature: the trained in-context estimator is a preconditioner fitted to the training covariance; off it the estimate is biased by a factor the architecture sets, and the bias does not fall with the prompt length, a positive limit in k that grows with the distance, from a reader whose weights are fixed. Training on varied covariances does not remove it in the linear reader and only softens it in the nonlinear one. Claim (b) also puts the training window length into B: a reader trained on windows of length L resolves no better than L allows, whatever k is at reading.
+
+**Status.** Main text verified.
+
+## 19. Wies, Levine, Shashua (2023), "The Learnability of In-Context Learning", arXiv 2303.07895 (NeurIPS 2023)
+
+**Read in full 2026-10-18 (the TeX source).**
+
+**Their setting.** A PAC definition of in-context learnability: a pretraining distribution over strings learned within epsilon in total variation per token by some algorithm; downstream tasks whose inputs are a component of the pretraining mixture over latent concepts phi; prompts of k concatenated examples with a delimiter; assumptions: approximate independence across the delimiter within a component (c_1), a floor on any token's conditional probability (c_2), a floor on any concept's prior (c_3).
+
+**Their claims.**
+- (a) The ratio of the prompt's likelihood under a wrong component to the true one goes to zero at a rate exponential in k and in the minimal KL divergence between components (Lemma 1), and still does with randomly flipped labels.
+- (b) For a test example with a label margin, the in-context predictor keeps at least half the margin once k exceeds a polynomial in the log of the floors, 1 over the KL gap, and the length (Theorem 1).
+- (c) The downstream tasks are efficiently in-context learnable: polynomial sample complexity in pretraining examples and in k (Theorem 2).
+- (d) Their reading: in this setting in-context learning "is more about identifying the task than about learning it".
+
+**What it means for the fork.** The identified part with its rate: inside the mixture the window identifies the component at k of the order of one over the KL gap, which is the sharp form of what D4' calls the legacy class's in-context work, picking the ball's table nearest the window. Outside the mixture the framework is silent by construction (c_3 gives every concept a floor, a new one has none), the fork's case (b) stated as an assumption rather than found.
+
+**Status.** Paper verified.
+
+## 20. Kirsch, Harrison, Sohl-Dickstein, Metz (2022), "General-Purpose In-Context Learning by Meta-Learning Transformers", arXiv 2212.04458
+
+**Read 2026-10-18 (the TeX source; the main text through the interventions).**
+
+**Their setting.** A transformer (GPICL) meta-trained to predict a label from a sequence of (x_i, y_{i-1}) tokens over tasks generated by random projections and label permutations of MNIST and others; the number of tasks and the model size varied; meta-test on seen tasks, unseen tasks, and unseen base datasets with no gradient step.
+
+**Their claims.**
+- (a) With enough tasks (at least 2^13) and size, a transition from memorisation to a learning algorithm that generalises to unseen tasks and datasets (Fashion MNIST, CIFAR-10), with within-sequence improvement as examples accumulate.
+- (b) Three phases as the number of tasks grows: task memorisation (no within-sequence improvement), task identification (improvement confined to seen tasks), general learning-to-learn (improvement on unseen tasks and datasets).
+- (c) The accessible state at prediction time (memory), not the parameter count, bottlenecks the learned algorithm; architectures with the same state size perform alike.
+- (d) Meta-optimisation shows long loss plateaus; larger batches, a smaller Adam epsilon or a sign-based optimiser, and biasing the task distribution (a curriculum from memorising to learning) shorten or remove them.
+
+**What it means for the fork.** The three phases are the fork on the diversity axis in a classification world, with the same order of threshold as entry 13 (2^13 against 2^14): "task identification" is the legacy class matching the ball, "general learning" the estimator beyond it. Claim (c) is about the general class's mechanism: the window's information must be held somewhere, and the size of that somewhere, not the weights, is the limit; the owner's "big enough" is a state size.
+
+**Status.** Main text verified.
+
+## 21. Lin, Lee (2024), "Dual Operating Modes of In-Context Learning", arXiv 2402.18819 (ICML 2024)
+
+**Read in full 2026-10-18 (the TeX source).**
+
+**Their setting.** Pretraining tasks drawn from a Gaussian mixture over pairs (input mean m, weight w) with M components of equal spread, inputs x ~ N(m, tau_x^2 I), noisy linear labels; in-context examples from a task (m', w') with noiseless labels; the pretrained model taken as optimal, so its prediction is the posterior mean. The posterior is a Gaussian mixture in closed form (Lemma 3.1): each component's weight re-weighted and its centre shifted to (I + k delta_w C_w)^{-1} (w_m + k delta_w m_w), with delta_w the prior-to-noise ratio.
+
+**Their claims.**
+- (a) Two effects of in-context examples: component re-weighting, which dominates at small k and is task retrieval, and component shifting, which dominates at large k and is task learning (§3).
+- (b) A fine-grained risk bound, a sum over components of the squared distance of the component's function from the in-context one times the posterior weight and a shrinkage factor (Theorem 4.1).
+- (c) Early ascent: if the most misleading component has a risk above the zero-shot risk and the prior noises are small, the risk first rises with k and then falls (Theorem 4.2); reproduced numerically and in GPT-3's reported one-shot drop.
+- (d) Bounded efficacy of biased-label and random-label in-context learning: the risk falls while retrieval dominates and rises once learning fits the biased labels; shown on Mistral, Mixtral, Llama 2 and GPT-4 beyond 32 examples.
+- (e) A transformer trained on the model approximates the Bayesian inference empirically.
+
+**What it means for the fork.** Lemma 5's pull in closed form with a mixture prior: the component shift is the conjugate update I wrote, with kappa the inverse of delta_w per component, so the 1/k rate of the corollary is their shifting; the re-weighting is the identified part's retrieval. Claim (c) is a prediction for our drift rows at small k: at a distance the nearest training table is retrieved first and S can rise before it falls, a non-monotone rec(w_t, k, D) at small k, consistent with the owner's "increasing in k for small k" in general-model 6.2 only after the ascent; the row's reading must not stop at the first k.
+
+**Status.** Paper verified.
+
+## 22. Wu, Zou, Chen, Braverman, Gu, Bartlett (2023), "How Many Pretraining Tasks Are Needed for In-Context Learning of Linear Regression?", arXiv 2310.08391 (ICLR 2024)
+
+**Read 2026-10-18 (the TeX source; the results; the tensor technique not read).**
+
+**Their setting.** A single-layer linear attention restricted to one step of gradient descent with a matrix step, f(X, y, x) = <Gamma X^T y / n, x>; linear regression with a Gaussian prior of scale psi^2, covariance H, noise sigma^2; pretraining by SGD with a geometrically decaying step over T independent tasks of context length N; evaluation at context length M.
+
+**Their claims.**
+- (a) The population-optimal Gamma is ((tr H + sigma^2/psi^2)/N I + (N+1)/N H)^{-1}, a regularised Newton step, unique; the risk is convex in Gamma (Theorem 3.1).
+- (b) Task complexity: after T tasks the excess risk is a bias term decaying exponentially plus (psi^2 tr H + sigma^2) D_eff / T_eff with D_eff at most d^2 and much smaller under decaying spectra; dimension-free in the favourable cases: a small number of independent tasks pretrains the model (Theorem 4.1, Corollary 4.2).
+- (c) The optimally pretrained model matches optimally tuned ridge regression when the inference context length M is close to the training length N; when they differ the attention model is suboptimal, with the gap given spectrum by spectrum (Theorem 5.3, Corollary 5.4).
+
+**What it means for the fork.** In this linear world the task count is not the limit: the estimator is learned from few tasks, so the threshold of entry 13 is about a nonlinear model's memorisation against estimation, not about the estimator's sample complexity. Claim (c) is a context-length mismatch cost of the trained reader's own: its N is baked in, and reading at k far from N costs; for our rows the training window length L and the reading k must be held equal across cells, or the mismatch is a confound inside rec(k).
+
+**Status.** Results verified; proofs unread.
 
 ## Download list for the research session
 
