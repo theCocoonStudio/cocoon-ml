@@ -112,18 +112,39 @@ for r in read_radii:
     marginal_train = by_rank_means(subset, [marginal_losses(g, counts_train) for _, g, _ in subset], whole)
     marginal_read = by_rank_means(subset, [marginal_losses(g, counts_read) for _, g, _ in subset], whole)
     prng = random.Random(seed + 11)
-    if reading_steps <= 0:
-        floors = [bayes_losses(t, g, SEP, tables, switch_mean, world=world, leftovers=leftovers) for t, g, _ in subset]
-        how = "exact"
-    else:
-        floors = [bayes_losses(t, g, SEP, tables, switch_mean, steps_mean=reading_steps, bound=bound, lean=None, radius=radius, particles=particles, rng=prng, world=world, leftovers=leftovers) for t, g, _ in subset]
-        how = particles
-    floor_curve = by_rank_means(subset, floors, whole)
-    floor_deep, _ = by_rank_means_deep(subset, floors)
+    floors, kept, retries, skipped = [], [], 0, 0
+    for t, g, _ in subset:
+        if reading_steps <= 0:
+            floors.append(bayes_losses(t, g, SEP, tables, switch_mean, world=world, leftovers=leftovers))
+            kept.append((t, g, _))
+            continue
+        # the particle filter can find no particle with mass on a window far from the origins (every
+        # particle's likelihood zero, "probability zero under the generator"): the window is retried once
+        # with five times the particles and skipped if that fails too; the counts are recorded, since the
+        # floor is then read on the windows the filter could evaluate, a selection
+        for n_particles in (particles, 5 * particles):
+            try:
+                floors.append(bayes_losses(t, g, SEP, tables, switch_mean, steps_mean=reading_steps, bound=bound, lean=None, radius=radius, particles=n_particles, rng=prng, world=world, leftovers=leftovers))
+                kept.append((t, g, _))
+                break
+            except ValueError:
+                if n_particles == particles:
+                    retries += 1
+                else:
+                    skipped += 1
+    how = "exact" if reading_steps <= 0 else particles
+    floor_curve = by_rank_means(kept, floors, whole)
+    floor_deep, _ = by_rank_means_deep(kept, floors)
     marginal_read_deep, _ = by_rank_means_deep(subset, [marginal_losses(g, counts_read) for _, g, _ in subset])
+    if skipped:  # the model's and the marginal's curves on the same kept windows, so S compares like with like
+        model_curve = form_losses_by_rank(model, kept, SEP, whole)
+        model_deep, deep_counts = by_rank_means_deep(kept, [position_losses(model, t, g) for t, g, _ in kept])
+        marginal_train = by_rank_means(kept, [marginal_losses(g, counts_train) for _, g, _ in kept], whole)
+        marginal_read = by_rank_means(kept, [marginal_losses(g, counts_read) for _, g, _ in kept], whole)
+        marginal_read_deep, _ = by_rank_means_deep(kept, [marginal_losses(g, counts_read) for _, g, _ in kept])
     truth = window_truth_distances(subset, reading, ball, phases=False)
     points["free" if r is None else str(r)] = {
-        "windows": len(subset), "of": len(rws), "whole": whole, "reading_states": len(MarkovBall(s for walk in reading.walks for s in walk)),
+        "windows": len(subset), "of": len(rws), "whole": whole, "floor_windows": len(kept), "floor_retries": retries, "floor_skipped": skipped, "reading_states": len(MarkovBall(s for walk in reading.walks for s in walk)),
         "truth_distance": sum(truth) / len(truth) if truth else None,
         "model_by_rank": model_curve, "floor_by_rank": floor_curve, "floor_estimate": how,
         "marginal_train_by_rank": marginal_train, "marginal_read_by_rank": marginal_read,
