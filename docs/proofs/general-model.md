@@ -228,6 +228,18 @@ the fall of the per-rank excess from the first artifact to the k-th, over window
 
 Izzy, 04:35: "it's not a different prediction from yours, just a more precise one."
 
+### 6.4 The unresolved share
+
+**Definition 6.4 (S).** For a reader R, the reading law W_p, a distance band D and a rank k, write ex_k(R | D) for the per-rank excess (4.4) over windows at distance in D (5.2). The unresolved share is
+
+  S(R, k, D) := ex_k(R | D) / ex_k(R0 | D),
+
+with R0 the marginal reader (4.3), defined where ex_k(R0 | D) > 0; where that is 0 the window resolves nothing at that rank and S has no value.
+
+**Remarks.** S >= 0 for every reader by 4.4.1; S(R*, k, D) = 0 and S(R0, k, D) = 1; a reader the window misleads scores above 1. Both excesses are differences of expected log-losses, so S is a ratio of two counts of bits and carries no unit; both references come from the law, so no vantage outside it enters. 1 - S is the share of the bits the window could resolve at rank k, beyond the marginal, that R resolves; the Bayes reader already carries the sampling floor, so "could resolve" is the window's and not a reader's. Recovery (6.1) and S determine each other through defined quantities: ex_k(R) / ex_1(R) = S(R, k, D) * ex_k(R0 | D) / ex_1(R | D). This S replaces the 1/Delta E of session 03 (`docs/reviews/2026-10-17-gemini-proof-round-1.md`); energy is not in it, and if a Delta E is wanted it is (1 - S) times the resolvable bits, derived. The owner kept this definition on 2026-10-18 (`asymptote-goal.md`, section 3).
+
+**6.2 restated in S.** Izzy: for the trained reader w_t and D past the training radius, S(w_t, k, D) decreases in k for small k and has a limit in k that is positive and increases with the distance. Claude's degenerate case: S(w_t, k, D) = 1 at every k. The direction (`asymptote-goal.md`, section 2, D4'): the best member of the general class at size n is w_p itself, so its limit in k is S(w_p, k, D), the trainer's own gap on the reading law (5.3) as a share, which falls as n grows; the legacy reader's limit exceeds it by an amount that grows with the distance. x in 5.3 is k.
+
 ### 6.3 The bound to be found
 
 **Conjecture (the bound).** There is a function B(k, D; Ens_t, Ens_p, A) such that for the trained reader, ex_{W_p,k}(w_t) <= B(k, D) on windows at distance in D, with B decreasing in k, with a positive limit in k for D past the training radius, that limit increasing in the distance, and B's form determined by the definitions above and nothing added: the sampling floor in k (the fixed-index bound, `docs/proofs/fixed-index-bound.md`), the walk's movement inside a window (the step kernel at the window's states), and what the training law shares with the reading law (the identified part of the two samples). Finding B is the work; this document is the arithmetic it is allowed to use.
