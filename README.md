@@ -12,7 +12,7 @@ The loop: a concept is written down in `docs/concepts/`, in a few lines. The cod
 
     python3 -m unittest
 
-No install; numpy from the distribution (`python3-numpy`; CI installs the same version from PyPI, pinned in `.github/workflows/check.yml`). Nothing unlinted: `python3 -m pyflakes cocoonml tests runs` passes before a commit (Debian's `python3-pyflakes`, 2.5.0, the version CI pins), then `python3 -m unittest`. Python 3.11 or later. The suite runs a toy-size cell of `runs/sweep7.py` in both modes as part of its tests.
+No install; numpy from the distribution (`python3-numpy`; CI installs the same version from PyPI, pinned in `.github/workflows/check.yml`). Nothing unlinted: `python3 -m pyflakes cocoonml tests runs` passes before a commit (Debian's `python3-pyflakes`, 2.5.0, the version CI pins), then `python3 -m unittest`. Python 3.11 or later. Since 2026-10-19 the suite also refuses a tracked record of a session or a chat and a project `.npmrc` (`tests/test_structure.py`; the `records-guard` workflow refuses the same at the push), and `CODEOWNERS` makes the workflow files the owner's to review; `.github/workflows/reviewer-policy.yml` is the reviewer policy every other repository carries (who may approve whose pull request, the job `policy` the verdict), required in the ruleset once the owner switches it on. The suite runs a toy-size cell of `runs/sweep7.py` in both modes as part of its tests.
 
 ## Why
 
