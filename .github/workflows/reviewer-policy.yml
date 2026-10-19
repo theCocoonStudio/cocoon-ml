@@ -1,0 +1,86 @@
+# Who may approve whose PR, as a required check rather than a habit.
+#
+# The main ruleset requires one approving review, and GitHub counts any user with
+# write access, bots included. With two agents that would let them approve each
+# other and merge code no human read. This job fails when the latest review on the
+# head, per reviewer, holds an approval from an account not allowed for the author and
+# none from an allowed one, or when an approver authored a commit on the pull request;
+# with no approval yet it passes, since the main ruleset's own review rule holds the PR
+# until one exists (a form that failed at open too left the open event's failed run
+# counted beside the later passes from the review events, so every PR needed a re-run
+# by hand after approval: cocoon-ai #87 and #88, 2026-10-19). The main ruleset requires
+# the job (`policy`), so the policy binds. The first form posted a commit status instead,
+# which any workflow with `statuses: write` could forge (cocoon-agent-sandbox #13,
+# 2026-10-18). Gemini's approval satisfies nobody's PR, by design (Izzy, 2026-10-02).
+# This repository had no reviewer policy until the audit of 2026-10-19.
+#
+#   author                 allowed approvers
+#   theCocoonStudio        cocoon-claude[bot]
+#   cocoon-claude[bot]     theCocoonStudio
+#   cocoon-gemini[bot]     theCocoonStudio, cocoon-claude[bot]
+#   anyone else            theCocoonStudio
+#
+# On the open path (pull_request_target) the base branch's copy of this file judges; on a review
+# event the pull request's own copy runs. What keeps the table binding is CODEOWNERS on .github/
+# plus the ruleset's code-owner review: a PR that rewrites this file still needs the owner's
+# approval. Reviews are read through the API, so the job needs no checkout and runs no code
+# from the PR.
+name: reviewer-policy
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  pull-requests: read
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: judge the latest reviews against the table
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$NUMBER")
+          author=$(jq -r .user.login <<<"$pr")
+          head=$(jq -r .head.sha <<<"$pr")
+          case "$author" in
+            theCocoonStudio)     allowed='["cocoon-claude[bot]"]' ;;
+            'cocoon-claude[bot]') allowed='["theCocoonStudio"]' ;;
+            'cocoon-gemini[bot]') allowed='["theCocoonStudio","cocoon-claude[bot]"]' ;;
+            *)                   allowed='["theCocoonStudio"]' ;;
+          esac
+          # the latest review per reviewer, for the current head only; a plain comment is
+          # not a review and must not displace an approval (Izzy, 2026-10-05)
+          verdict=$(gh api --paginate "repos/$REPO/pulls/$NUMBER/reviews" \
+            | jq -c --arg head "$head" --argjson allowed "$allowed" '
+                [ .[] | select(.commit_id == $head and .state != "COMMENTED") ]
+                | group_by(.user.login) | map(max_by(.submitted_at))
+                | map(select(.state == "APPROVED") | .user.login)
+                | { allowed: map(select(. as $u | $allowed | index($u))),
+                    refused: map(select(. as $u | $allowed | index($u) | not)) }')
+          allowed_by=$(jq -r '.allowed | join(", ")' <<<"$verdict")
+          refused_by=$(jq -r '.refused | join(", ")' <<<"$verdict")
+          # an approval by the author of a commit on this PR counts for nothing and fails the job: a
+          # reviewer never pushes onto the branch it reviews (a reviewer's commit on a branch it had
+          # approved, 2026-10-17); merge commits are skipped, since an update-branch by the owner
+          # authors one in their name; this list is under pull-requests: read, the commits endpoint is not
+          authors=$(gh api --paginate "repos/$REPO/pulls/$NUMBER/commits" \
+            | jq -r '.[] | select((.parents | length) == 1) | .author.login // empty' | sort -u)
+          self_reviewed=$(jq -r '.allowed + .refused | .[]' <<<"$verdict" | sort -u | comm -12 - <(printf '%s\n' "$authors") | paste -sd, -)
+          if [ -n "$self_reviewed" ]; then
+            echo "approved by $self_reviewed, who authored a commit on this PR; a reviewer never pushes onto the branch it reviews"
+            exit 1
+          elif [ -n "$allowed_by" ]; then
+            echo "approved by $allowed_by (allowed for $author)"
+            exit 0
+          elif [ -n "$refused_by" ]; then
+            echo "approved by $refused_by, not allowed for a PR by $author; needs $(jq -r 'join(" or ")' <<<"$allowed")"
+            exit 1
+          else
+            echo "no approval yet; the ruleset's own review rule holds the PR until one from $(jq -r 'join(" or ")' <<<"$allowed") exists"
+            exit 0
+          fi

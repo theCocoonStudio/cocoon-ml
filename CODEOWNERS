@@ -1,0 +1,5 @@
+# The workflow files and this file are the owner's to review (the audit of 2026-10-19, item 10: this repository had
+# no reviewer policy and no code-owner rule). With the ruleset's code-owner review on, a pull request cannot
+# rewrite the policy that judges it (cocoon-ai docs/new-repository.md).
+/.github/    @theCocoonStudio
+/CODEOWNERS  @theCocoonStudio
