@@ -47,6 +47,10 @@ class SchemaWorld:
     def __init__(self):
         self._cache = {}
 
+    def forget(self):
+        """Drop every memo (window_predictives, after a sampled window: its states are never asked again)."""
+        self._cache.clear()
+
     def _dist(self, table):
         key = id(table)
         if key not in self._cache:
@@ -101,6 +105,12 @@ class MarkovWorld:
         self._ends = {}
         self._exact = {}
         self._norm = {}
+
+    def forget(self):
+        """Drop every memo (window_predictives, after a sampled window: its chains are never asked again)."""
+        self._ends.clear()
+        self._exact.clear()
+        self._norm.clear()
 
     def forms(self, origins):
         return list(range(1, origins[0].states + 1))
@@ -217,8 +227,22 @@ def window_predictives(tokens, separator, origins, switch_mean, steps_mean=0.0, 
     that artifact's length (it did not fit the previous window); None leaves it unconditioned. With
     steps, each particle's tables first take `burn_in` steps of the pulled walk from the origin, so a
     window mid-corpus is predicted from where the walk is, not from where it started (Methuselah,
-    2026-10-11, objection 2); the exact path has no steps and no burn-in."""
+    2026-10-11, objection 2); the exact path has no steps and no burn-in. The world memoises by
+    state object and holds the object so its id stays valid; with steps every particle's state is a
+    fresh object drawn this call, so nothing memoised for it is ever asked again and the memos are
+    dropped (world.forget) once the window is done, raised or not; a world shared across windows
+    otherwise grew by about 100 MB a window at 200 particles (2026-10-19). The exact path's states
+    are the origins themselves, so its memo repeats across windows and is kept."""
     world = world or SchemaWorld()
+    if steps_mean <= 0:
+        return _window_predictives(tokens, separator, origins, switch_mean, steps_mean, bound, lean, radius, particles, rng, world, leftovers, burn_in)
+    try:
+        return _window_predictives(tokens, separator, origins, switch_mean, steps_mean, bound, lean, radius, particles, rng, world, leftovers, burn_in)
+    finally:
+        world.forget()
+
+
+def _window_predictives(tokens, separator, origins, switch_mean, steps_mean, bound, lean, radius, particles, rng, world, leftovers, burn_in):
     first_weights = first_length_weights(leftovers)
     n = len(origins)
     p_switch = switch_probability(switch_mean, n)
