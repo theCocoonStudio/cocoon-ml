@@ -10,7 +10,10 @@
 # floor's by rank (exact where the reading has no steps, the particle filter otherwise; the floor is the
 # Bayes reader under the reading law, so it carries the sampling floor and the moving index), and S by
 # rank with each marginal. One JSON line out. Numbers to the log only (the rule).
-# Usage: reference8.py <cell_log> <copy: marginal|best|last> <windows> <particles> [radii: a,b,free]
+# Usage: reference8.py <cell_log> <copy: marginal|best|last> <windows> <particles> [radii: a,b,free] [particle_seed]
+# particle_seed (default 11, the value every run before 2026-10-19 used) seeds the particle filter alone, so two
+# runs on the same windows with different particle seeds differ in the floor's draws and nothing else: the
+# floor's own variance, which the second pilot's reading found is owed before any far reading is compared.
 import json
 import random
 import sys
@@ -35,6 +38,7 @@ corpus_size, read_size, seed = int(a[10]), int(a[12]), int(a[14])
 alpha = float(a[18]) if len(a) > 18 else 1.0
 end_alpha = float(a[19]) if len(a) > 19 else 0.5
 radii_arg = sys.argv[5] if len(sys.argv) > 5 else a[11]
+particle_seed = int(sys.argv[6]) if len(sys.argv) > 6 else 11
 read_radii = [None if r == "free" else int(r) for r in radii_arg.split(",")]
 copy = cell["copies"][copy_name]
 if copy is None:
@@ -111,7 +115,7 @@ for r in read_radii:
     counts_read = token_counts(rws)
     marginal_train = by_rank_means(subset, [marginal_losses(g, counts_train) for _, g, _ in subset], whole)
     marginal_read = by_rank_means(subset, [marginal_losses(g, counts_read) for _, g, _ in subset], whole)
-    prng = random.Random(seed + 11)
+    prng = random.Random(seed + particle_seed)
     floors, kept, retries, skipped = [], [], 0, 0
     for t, g, _ in subset:
         if reading_steps <= 0:
@@ -152,5 +156,5 @@ for r in read_radii:
         "deep": {"counts": deep_counts, "model_by_rank": model_deep, "floor_by_rank": floor_deep, "marginal_read_by_rank": marginal_read_deep, "S_by_rank": share(model_deep, floor_deep, marginal_read_deep)},
     }
 
-print(json.dumps({"run": name, "copy": copy_name, "copy_step": copy["step"], "copy_held_loss": copy["held_loss"], "windows": n_windows, "particles": particles,
+print(json.dumps({"run": name, "copy": copy_name, "copy_step": copy["step"], "copy_held_loss": copy["held_loss"], "windows": n_windows, "particles": particles, "particle_seed": particle_seed,
                   "ball_states": len(ball), "train_radius_grains": train_radius_g, "points": points, "seconds": round(time.time() - t0, 1)}))
